@@ -28,7 +28,7 @@ class GCodeCmd(object):
     def __init__(self):
         self.motionDict = {}
         self.code = ';NONE'
-        self.comment = True 
+        self.comment = False 
         self.commentStr = ''
 
     def __str__(self):
@@ -385,6 +385,17 @@ class CancelToolLengthOffset(GCodeCmd):
         super(CancelToolLengthOffset,self).__init__()
         self.code = 'G49'
         self.commentStr = "Cancel tool length offset"
+
+
+# Cutter compensation
+# -----------------------------------------------------------------------------
+
+class CancelCutterCompensation(GCodeCmd):
+
+    def __init__(self):
+        super(CancelCutterCompensation,self).__init__()
+        self.code = 'G40'
+        self.commentStr = 'Cancel cutter radius compensation'
 
 
 # Units
