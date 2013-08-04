@@ -16,8 +16,7 @@ limitations under the License.
 
 """
 from __future__ import print_function
-import gcode_cmds
-
+import gcode_cmds as g
 
 class GCodeProg(object):
 
@@ -31,6 +30,19 @@ class GCodeProg(object):
             cmd.comment = True
         self.listOfCmds.append(cmd)
 
+    def addGenericStart(self,feedrate=None,units='in',comment=True):
+        self.add(g.Space())
+        self.add(g.Comment('Generic Start'))
+        self.add(g.CancelCutterCompensation(),comment=comment)
+        self.add(g.CancelToolLengthOffset(),comment=comment)
+        self.add(g.CancelCannedCycle(),comment=comment)
+        self.add(g.CoordinateSystem(1),comment=comment)
+        self.add(g.AbsoluteMode(),comment=comment)
+        self.add(g.Units(units),comment=comment)
+        self.add(g.ExactPathMode(),comment=comment)
+        if feedrate is not None:
+            self.add(g.FeedRate(feedrate),comment=comment)
+
     def __str__(self):
         if self.lineNumbers:
             listOfStr = ['N{0} {1}'.format(i,x) for i,x in enumerate(self.listOfCmds)] 
@@ -39,20 +51,38 @@ class GCodeProg(object):
         return '\n'.join(listOfStr)
 
     def write(self,filename):
-        pass
-
+        with open(filename,'w') as f:
+            f.write(self.__str__());
 
 
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
 
-
     prog = GCodeProg()
+    prog.addGenericStart()
+    prog.add(g.Space())
 
-    prog.add(gcode_cmds.CancelCutterCompensation(),comment=True)
-    prog.add(gcode_cmds.CancelToolLengthOffset(),comment=True)
-    prog.add(gcode_cmds.CancelCannedCycle(),comment=True)
+    prog.add(g.FeedRate(10.0))
+    prog.add(g.Space())
+
+    prog.add(g.Comment('Move to start'))
+    prog.add(g.RapidMotion(x=1,y=1,z=1))
+    prog.add(g.Space())
+
+    prog.add(g.Comment('Cut box'))
+    prog.add(g.LinearFeed(z=0))
+    prog.add(g.LinearFeed(x=1,y=-1))
+    prog.add(g.LinearFeed(x=-1,y=-1))
+    prog.add(g.LinearFeed(x=-1,y=1))
+    prog.add(g.LinearFeed(x=1,y=1))
+    prog.add(g.RapidMotion(x=1,y=1,z=1))
+    
+    prog.add(g.Space())
+    prog.add(g.End(),comment=True)
+
     print(prog)
+    prog.write('test.ngc')
+
 
 
 
