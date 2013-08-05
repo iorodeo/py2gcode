@@ -17,6 +17,34 @@ limitations under the License.
 """
 from __future__ import print_function
 
+# GCode program
+# -----------------------------------------------------------------------------
+class GCodeProg(object):
+
+    def __init__(self):
+        self.listOfCmds = []
+        self.lineNumbers = False
+        self.lineNumberStep = 2 
+
+    def add(self,obj,comment=False):
+        if isinstance(obj,GCodeCmd):
+            if comment:
+                obj.comment = True
+            self.listOfCmds.append(obj)
+        else:
+            self.listOfCmds.extend(obj.listOfCmds)
+
+    def __str__(self):
+        listOfStr = [x.__str__() for x in self.listOfCmds]
+        if self.lineNumbers:
+            step = self.lineNumberStep
+            listOfStr = ['N{0} {1}'.format(step*i,x) for i,x in enumerate(listOfStr)]
+        return '\n'.join(listOfStr)
+
+    def write(self,filename):
+        with open(filename,'w') as f:
+            f.write(self.__str__());
+
 # Base classes
 # -----------------------------------------------------------------------------
 
