@@ -39,7 +39,7 @@ class GenericStart(GCodeProg):
             self.add(FeedRate(feedrate),comment=comment)
 
 
-class RectXY(GCodeProg):
+class RectPathXY(GCodeProg):
     """
     Rectangle in xy plane made of LinearFeeds which is defined by points q and
     p. Note, prior to rectangle tool is moved from current position to start
@@ -47,7 +47,7 @@ class RectXY(GCodeProg):
     """
 
     def __init__(self,p,q):
-        super(RectXY,self).__init__()
+        super(RectPathXY,self).__init__()
         self.p = p
         self.q = q
 
@@ -67,13 +67,14 @@ class RectXY(GCodeProg):
         pass
 
 
-class FilledRectXY(GCodeProg):
+
+class FilledRectPathXY(GCodeProg):
     """
-    Rectangular pocket made of LinearFeeds which is defined points p and q. 
+    Rectangular path made up of LinearFeeds which is defined points p and q. 
     """
 
     def __init__(self,p,q,step):
-        super(FilledRectXY,self).__init__()
+        super(FilledRectPathXY,self).__init__()
         self.p = p
         self.q = q
         self.step = step
@@ -99,7 +100,7 @@ class FilledRectXY(GCodeProg):
         while dx > 0 and dy > 0:
             p = xMid + dx, yMid + dy
             q = xMid - dx, yMid - dy
-            r = RectXY(p,q)
+            r = RectPathXY(p,q)
             listOfCmds.extend(r.listOfCmds)
             dx -= self.step
             dy -= self.step
@@ -130,12 +131,12 @@ if __name__ == '__main__':
     prog.add(RapidMotion(x=p[0],y=p[1],z=zSafe))
     prog.add(Space())
 
-    prog.add(Comment('Cut RectXY'))
-    prog.add(RectXY(p,q))
+    prog.add(Comment('RectPathXY'))
+    prog.add(RectPathXY(p,q))
     prog.add(Space())
 
-    prog.add(Comment('Cut RectPocketXY'))
-    prog.add(FilledRectXY(p,q,0.05))
+    prog.add(Comment('FilledRectPathXY'))
+    prog.add(FilledRectPathXY(p,q,0.05))
     prog.add(Space())
     
     prog.add(Space())
