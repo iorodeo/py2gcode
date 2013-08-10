@@ -258,7 +258,7 @@ if __name__ == '__main__':
         cutLen = 0.5
         prog.add(RectWithCornerCutPathXY(p,q,cutLen))
 
-    if 1:
+    if 0:
         p = ( 1.0,  1.0)
         q = (-1.0, -1.0)
         step = 0.1
@@ -268,6 +268,9 @@ if __name__ == '__main__':
         prog.add(Comment('FilledRectWithCornerCutPathXY'))
         prog.add(FilledRectWithCornerCutPathXY(p,q,step,num,cutLen))
         prog.add(Space())
+
+    if 1:
+        prog.add(QuadraticBSplineXY(1.0,1.0, 1.0, 0.5))
 
     
     prog.add(Space())

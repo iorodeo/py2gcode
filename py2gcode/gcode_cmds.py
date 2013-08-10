@@ -259,6 +259,29 @@ class CancelCannedCycle(GCodeCmd):
         self.commentStr = 'Cancel canned cycle'
 
 
+class QuadraticBSplineXY(GCodeCmd):
+
+    kwargsKeys = ('x', 'y', 'i', 'j')
+
+    def __init__(self,*args,**kwargs):
+        kwargs = normalizeToKwargs(self.kwargsKeys,args,kwargs)
+        for k in self.kwargsKeys:
+            if k not in kwargs:
+                raise ValueError, 'missing required argument {0}'.format(k)
+        super(QuadraticBSplineXY,self).__init__()
+        self.code = 'G5.1'
+        self.commentStr = 'Quadratic B-Spline'
+        self.splineArgs = kwargs
+
+    def getCmdList(self):
+        cmdList = super(QuadraticBSplineXY,self).getCmdList()
+        for key in self.kwargsKeys:  # Use order in axisNames list
+            value = self.splineArgs[key]
+            if value is not None:
+                cmdList.append('{0}{1}'.format(key.upper(),float(value)))
+        return cmdList
+
+
 # Canned Cycles
 # -----------------------------------------------------------------------------
 
@@ -826,6 +849,9 @@ if __name__ == '__main__':
     print(cmd)
 
     cmd = DrillCycle(math.pi,0,-1.0,0.1,None,1.0)
+    print(cmd)
+    
+    cmd = QuadraticBSplineXY(1.0,1.0,1.1,1.5)
     print(cmd)
 
 
