@@ -39,7 +39,9 @@ class GCodeProg(object):
         if self.lineNumbers:
             step = self.lineNumberStep
             listOfStr = ['N{0} {1}'.format(step*i,x) for i,x in enumerate(listOfStr)]
+        listOfStr.append('')
         return '\n'.join(listOfStr)
+
 
     def write(self,filename):
         with open(filename,'w') as f:
@@ -104,7 +106,7 @@ class GCodeAxisArgCmd(GCodeCmd):
         for axis in self.axisNames:  # Use order in axisNames list
             motion = self.motionDict[axis] 
             if motion is not None:
-                cmdList.append('{0}{1}'.format(axis.upper(),float(motion)))
+                cmdList.append('{0}{1:1.8f}'.format(axis.upper(),float(motion)))
         return cmdList
 
 
@@ -167,6 +169,11 @@ class Dwell(GCodeSingleArgCmd):
         super(Dwell,self).__init__(value,valueType=float)
         self.code = 'G4'
         self.commentStr = 'Dwell'
+
+    def getCmdList(self):
+        cmdList = super(GCodeSingleArgCmd,self).getCmdList()
+        cmdList.append('P{0}'.format(self.valueType(self.value)))
+        return cmdList
 
 
 class HelicalMotionXY(GCodeHelicalMotion):
