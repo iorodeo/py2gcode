@@ -66,7 +66,17 @@ class LinearFeedPath(GCodeProg):
         listOfCmds = []
         for point in self.pointList:
             if isinstance(point,dict):
-                listOfCmd.append(LinearFeed(**point))
+                if 'type' in point:
+                    motionType = point['type']
+                    del point['type']
+                    if not motionType in ('linearFeed','rapidMotion'):
+                        raise ValueError, 'unknown motion type {0}'.format(motionType)
+                else:
+                    motionType = 'linearFeed'
+                if motionType == 'linearFeed':
+                    listOfCmds.append(LinearFeed(**point))
+                else:
+                    listOfCmds.append(RapidMotion(**point))
             else:
                 listOfCmds.append(LinearFeed(*point))
         return listOfCmds
@@ -220,9 +230,11 @@ class FilledRectWithCornerCutPathXY(LinearFeedPath):
         return pointList
 
 
-class RasterRectPathBase(LinearFeedPath):
+class BiDirRasterRectPathBase(LinearFeedPath):
 
-    """ Base clasee for rectangular raster paths.  """
+    """ 
+    Base class bi-directional for rastered rectangle paths.  
+    """
 
     allowedDirections = ()
 
@@ -241,67 +253,222 @@ class RasterRectPathBase(LinearFeedPath):
         return []
 
 
-class RasterRectPathXY(RasterRectPathBase):
+class BiDirRasterRectPathXY(BiDirRasterRectPathBase):
+
+    """
+    Bi-directional rastered rectangle  path in xy plane.
+    """
 
     allowedDirections = 'x','y'
 
     def __init__(self,point0,point1,step,direction='x'):
-        super(RasterRectPathXY,self).__init__(point0,point1,step,direction=direction)
+        super(BiDirRasterRectPathXY,self).__init__(point0,point1,step,direction=direction)
 
     @property
     def pointList(self):
         if self.direction == 'x':
-            pointList = getRasterRectPointList(self.point0,self.point1,self.step)
+            pointList = getBiDirRasterRectPointList(self.point0,self.point1,self.step)
         else:
             x0, y0 = self.point0
             x1, y1 = self.point1
-            pointList =  getRasterRectPointList((y0,x0),(y1,x1),self.step)
+            pointList =  getBiDirRasterRectPointList((y0,x0),(y1,x1),self.step)
             pointList = [(x,y) for y,x in pointList]
         return pointList
 
 
-class RasterRectPathXZ(RasterRectPathBase):
+class BiDirRasterRectPathXZ(BiDirRasterRectPathBase):
+
+    """
+    Bi-directional rastered rectangle raster path in xz plane.
+    """
 
     allowedDirections = 'x', 'z'
 
     def __init__(self,point0,point1,step,direction='x'):
-        super(RasterRectPathXZ,self).__init__(point0,point1,step,direction=direction)
+        super(BiDirRasterRectPathXZ,self).__init__(point0,point1,step,direction=direction)
 
     @property
     def pointList(self):
         if self.direction == 'x':
-            pointList = getRasterRectPointList(self.point0,self.point1,self.step)
+            pointList = getBiDirRasterRectPointList(self.point0,self.point1,self.step)
             pointList = [(x,0,z) for x,z in pointList]
         else:
             x0, z0 = self.point0
             x1, z1 = self.point1
-            pointList = getRasterRectPointList((z0,x0),(z1,x1),self.step)
+            pointList = getBiDirRasterRectPointList((z0,x0),(z1,x1),self.step)
             pointList = [(x,0,z) for z,x in pointList]
         return pointList
 
-class RasterRectPathYZ(RasterRectPathBase):
+class BiDirRasterRectPathYZ(BiDirRasterRectPathBase):
+
+    """
+    Bi-directional rastered rectangle path in yz plane.
+    """
 
     allowedDirections = 'y', 'z'
 
     def __init__(self,point0,point1,step,direction='y'):
-        super(RasterRectPathYZ,self).__init__(point0,point1,step,direction=direction)
+        super(BiDirRasterRectPathYZ,self).__init__(point0,point1,step,direction=direction)
 
     @property
     def pointList(self):
         if self.direction == 'y':
-            pointList = getRasterRectPointList(self.point0,self.point1,self.step)
+            pointList = getBiDirRasterRectPointList(self.point0,self.point1,self.step)
             pointList = [(0,y,z) for y,z in pointList]
         else:
             y0, z0 = self.point0
             y1, z1 = self.point1
-            pointList = getRasterRectPointList((z0,y0),(z1,y1),self.step)
+            pointList = getBiDirRasterRectPointList((z0,y0),(z1,y1),self.step)
             pointList = [(0,y,z) for z,y in pointList]
         return pointList
 
 
+class UniDirRasterRectPathBase(LinearFeedPath):
+
+    allowedDirections = ()
+
+    def __init__(self,point0,point1,step,direction=None):
+        super(UniDirRasterRectPathBase,self).__init__()
+        self.point0 = point0
+        self.point1 = point1
+        self.step = step
+        if direction in self.allowedDirections:
+            self.direction = direction
+        else:
+            raise ValueError, 'uknown direction {0}'.format(direction)
+        checkFilledRectStep(self.point0,self.point1,self.step)
+
+    @property
+    def pointList(self):
+        return []
+
+
+class UniDirRasterRectPathXY(UniDirRasterRectPathBase):
+
+    allowedDirections = ('x', 'y')
+
+    def __init__(self,point0,point1,step,cutZ,retZ,direction='x'):
+        super(UniDirRasterRectPathXY,self).__init__(point1,point1,step,direction=direction)
+        self.cutZ = cutZ
+        self.retZ = retZ
+
+    @property
+    def pointList(self):
+        if self.direction == 'x':
+            pointList = getUniDirRasterRectPath(
+                    self.point0,
+                    self.point1,
+                    self.step,
+                    self.cutZ,
+                    self.retZ
+                    )
+        else:
+            x0, y0 = self.point0
+            x1, y1 = self.point1
+            pointList = getUniDirRasterRectPath(
+                    (y0,x0),
+                    (y1,x1),
+                    self.step,
+                    self.cutZ,
+                    self.retZ,
+                    )
+            keySwapDict = {'x': 'y', 'y': 'x'}
+            pointList = [swapKeys(point,keySwapDict) for point in pointList]
+        return pointList
+
+
+class UniDirRasterRectPathXZ(UniDirRasterRectPathBase):
+
+    allowedDirections = ('x', 'z')
+
+    def __init__(self,point0,point1,step,cutY,retY,direction='x'):
+        super(UniDirRasterRectPathXZ,self).__init__(point0,point1,step,direction=direction)
+        self.cutY = cutY
+        self.retY = retY
+
+    @property
+    def pointList(self):
+        if self.direction == 'x':
+            pointList = getUniDirRasterRectPath(
+                    self.point0,
+                    self.point1,
+                    self.step,
+                    self.cutY,
+                    self.retY
+                    )
+            keySwapDict = {'y': 'z', 'z': 'y'}
+            pointList = [swapKeys(point,keySwapDict) for point in pointList]
+        else:
+            x0, y0 = self.point0
+            x1, y1 = self.point1
+            pointList = getUniDirRasterRectPath(
+                    (y0,x0),
+                    (y1,x1),
+                    self.step,
+                    self.cutY,
+                    self.retY,
+                    )
+            keySwapDict = {'x': 'z', 'y': 'x', 'z': 'y'}
+            pointList = [swapKeys(point,keySwapDict) for point in pointList]
+        return pointList
+
+
+class UniDirRasterRectPathYZ(UniDirRasterRectPathBase):
+
+    allowedDirections = ('y','z')
+
+    def __init__(self,point0,point1,step,cutX,retX,direction='y'):
+        super(UniDirRasterRectPathYZ,self).__init__(point0,point1,step,direction=direction)
+        self.cutX = cutX
+        self.retX = retX
+
+    @property
+    def pointList(self):
+        if self.direction == 'y':
+            pointList = getUniDirRasterRectPath(
+                    self.point0,
+                    self.point1,
+                    self.step,
+                    self.cutX,
+                    self.retX
+                    )
+            keySwapDict = {'x': 'y', 'z': 'x', 'y': 'z'}
+            pointList = [swapKeys(point,keySwapDict) for point in pointList]
+        else:
+            print('a')
+            x0, y0 = self.point0
+            x1, y1 = self.point1
+            pointList = getUniDirRasterRectPath(
+                    (y0,x0),
+                    (y1,x1),
+                    self.step,
+                    self.cutX,
+                    self.retX,
+                    )
+            keySwapDict = {'x': 'z', 'z': 'x'}
+            pointList = [swapKeys(point,keySwapDict) for point in pointList]
+        return pointList
+
 # -----------------------------------------------------------------------------
 
+def swapKeys(d,keySwapDict):
+    """
+    Swap keys in dictionary according to keySwap dictionary 
+    """
+    dNew = {}
+    for key, keyNew in keySwapDict.iteritems():
+        if key in d:
+            dNew[keyNew] = d[key]
+    for key in d:
+        if key not in keySwapDict:
+            dNew[key] = d[key]
+    return dNew
+
 def checkFilledRectStep(point0,point1,step): 
+    """
+    Checks that step size is small enough for filled rectangular paths. Note,
+    this include raster paths.
+    """
     x0,y0 = point0
     x1,y1 = point1
     xLen = abs(x1-x0)
@@ -310,11 +477,12 @@ def checkFilledRectStep(point0,point1,step):
         raise ValueError, 'step size too small'
 
 
-def getRasterRectPointList(point0,point1,step):
+def getBiDirRasterRectPointList(point0,point1,step):
     """
-    Generates a basic rectangular raster path defined by point0 and point1 with
-    spacing step between rows of the raster. The raster scan is in the
-    direction of the 1st coordinate.
+    Generates a bi-directional rastered rectangle  path defined by
+    point0=(x0,y0) and point1=(x1,y1). The raster scan is in the direction of
+    the 1st coordinate and path starts by initially cutting from x0 to x1.  The
+    spacing between rows in is determined by step. 
     """
     x0,y0 = point0
     x1,y1 = point1
@@ -335,6 +503,7 @@ def getRasterRectPointList(point0,point1,step):
             return x1
         else:
             return x0
+
     # Generate raster
     x,y = x0,y0
     pointList.append((x,y))
@@ -350,6 +519,58 @@ def getRasterRectPointList(point0,point1,step):
         pointList.append((x,y))
         x = getAlternateX(x)
         pointList.append((x,y))
+    return pointList
+
+
+def getUniDirRasterRectPath(point0,point1,step,cutZ,retZ):
+    """
+    Generates a uni-directional rastered rectangle path.
+
+    Details: ...
+    """
+    x0,y0 = point0
+    x1,y1 = point1
+    pointList = []
+    # Get step size and raster completion function
+    if y0 < y1:
+        dy = step
+        def outOfBounds(y):
+            return y > y1
+    else:
+        dy = -step
+        def outOfBounds(y):
+            return y < y1
+
+    # Get function for alternating x direction
+    def getAlternateX(xLast):
+        if xLast == x0:
+            return x1
+        else:
+            return x0
+
+    # Generate raster
+    x, y = x0, y0
+    isFirst = True
+    isLast = False
+    pointList.append({'x': x, 'y': y, 'z': cutZ})  
+    while 1:
+        x = getAlternateX(x)
+        if x==x0:
+            pointList.append({'z': retZ})
+            pointList.append({'x':x, 'y':y, 'type':'rapidMotion'})
+        else:
+            pointList.append({'z': cutZ})
+            if isFirst:
+                isFirst = False
+            else:
+                y += dy
+                if outOfBounds(y):
+                    y = y1
+                    isLast = True
+                pointList.append({'y': y})
+            pointList.append({'x': x, 'y': y})
+        if isLast:
+            break
     return pointList
 
 
@@ -398,36 +619,91 @@ if __name__ == '__main__':
         p = -5.0, -1.5
         q =  5.0,  1.5
         step = 0.1
-        prog.add(Comment('RasterRectPathXY'))
-        prog.add(RasterRectPathXY(p,q,step,direction='x'))
+        prog.add(Comment('BiDirRasterRectPathXY'))
+        prog.add(BiDirRasterRectPathXY(p,q,step,direction='x'))
 
     if 0:
         p = -5.0, -1.5
         q =  5.0,  1.5
         step = 0.1
-        prog.add(Comment('RasterRectPathXY'))
-        prog.add(RasterRectPathXY(p,q,step,direction='x'))
+        prog.add(Comment('BiDirRasterRectPathXY'))
+        prog.add(BiDirRasterRectPathXY(p,q,step,direction='x'))
 
     if 0:
         p = 3, 1
         q = 0, 0
         step = 0.05
-        prog.add(Comment('RasterRectPathXZ'))
-        prog.add(RasterRectPathXZ(p,q,step,direction='x'))
+        prog.add(Comment('BiDirRasterRectPathXZ'))
+        prog.add(BiDirRasterRectPathXZ(p,q,step,direction='x'))
 
     if 0:
         p = 3, 1
         q = 0, 0
         step = 0.05
-        prog.add(Comment('RasterRectPathXZ'))
-        prog.add(RasterRectPathXZ(p,q,step,direction='z'))
+        prog.add(Comment('BiDirRasterRectPathXZ'))
+        prog.add(BiDirRasterRectPathXZ(p,q,step,direction='z'))
 
-    if 1:
+    if 0:
         p = 1.5, 1
         q = 0, 0
         step = 0.05
-        prog.add(Comment('RasterRectPathXZ'))
-        prog.add(RasterRectPathYZ(p,q,step,direction='y'))
+        prog.add(Comment('BiDirRasterRectPathXZ'))
+        prog.add(BiDirRasterRectPathYZ(p,q,step,direction='y'))
+
+    if 0:
+        p = 0,0
+        q = 2,1
+        step = 0.05
+        cutZ = -0.1 
+        retZ =  0.1
+        prog.add(Comment('UniDirRasterRectPathXY'))
+        prog.add(UniDirRasterRectPathXY(p,q,step,cutZ,retZ,direction='x'))
+
+    if 0:
+        p = 0,0
+        q = 2,1
+        step = 0.05
+        cutZ = -0.1 
+        retZ =  0.1
+        prog.add(Comment('UniDirRasterRectPathXY'))
+        prog.add(UniDirRasterRectPathXY(p,q,step,cutZ,retZ,direction='y'))
+
+    if 0:
+        p = 0,0
+        q = 2,-1
+        step = 0.05
+        cutY = 0.1 
+        retY = -0.1
+        prog.add(Comment('UniDirRasterRectPathXZ'))
+        prog.add(UniDirRasterRectPathXZ(p,q,step,cutY,retY,direction='x'))
+
+    if 0:
+        p = 0,0
+        q = 2,-1
+        step = 0.05
+        cutY = 0.1 
+        retY = -0.1
+        prog.add(Comment('UniDirRasterRectPathXZ'))
+        prog.add(UniDirRasterRectPathXZ(p,q,step,cutY,retY,direction='z'))
+
+    if 0:
+        p = 2, 0
+        q = 0,-1
+        step = 0.05
+        cutY = 0.1 
+        retY = -0.1
+        prog.add(Comment('UniDirRasterRectPathYZ'))
+        prog.add(UniDirRasterRectPathYZ(p,q,step,cutY,retY,direction='y'))
+
+    if 1:
+        p = 2, 0
+        q = 0,-1
+        step = 0.05
+        cutY = 0.1 
+        retY = -0.1
+        prog.add(Comment('UniDirRasterRectPathYZ'))
+        prog.add(UniDirRasterRectPathYZ(p,q,step,cutY,retY,direction='z'))
+
 
     prog.add(Space())
     prog.add(End(),comment=True)
