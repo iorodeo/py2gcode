@@ -55,11 +55,11 @@ class LinearFeedPath(GCodeProg):
 
     @property
     def endPoint(self):
-        return pointList[-1]
+        return self.pointList[-1]
 
     @property
     def startPoint(self):
-        return pointList[0]
+        return self.pointList[0]
 
     @property
     def listOfCmds(self):
@@ -117,10 +117,17 @@ class RectWithCornerCutPathXY(LinearFeedPath):
     Note, point0 is the start and end point of the path.
     """
 
-    def __init__(self,point0,point1,cornerCutLen):
+    defaultCornerCutDict = {'00':True, '01':True, '11':True, '10':True}
+    numToCornerStr = {1:'01', 2:'11',3:'10',4:'00'}
+
+    def __init__(self,point0,point1,cornerCutLen,cornerCutDict=defaultCornerCutDict):
         self.point0 = point0
         self.point1 = point1
         self.cornerCutLen = cornerCutLen
+        self.cornerCutDict = cornerCutDict
+        for k in self.defaultCornerCutDict:
+            if k not in self.cornerCutDict:
+                self.cornerCutDict[k] = False
 
     @property
     def pointList(self):
@@ -134,13 +141,17 @@ class RectWithCornerCutPathXY(LinearFeedPath):
         for i, p in enumerate(rectPath.pointList):
             pointList.append(p)
             if i > 0:
-                x,y = p
-                normConst = math.sqrt((x-xMid)**2 + (y-yMid)**2)
-                u = (x-xMid)/normConst
-                v = (y-yMid)/normConst
-                xx = x + self.cornerCutLen*u/math.sqrt(2.0)
-                yy = y + self.cornerCutLen*v/math.sqrt(2.0)
-                pointList.extend([(xx,yy),(x,y)])
+                cornerStr = self.numToCornerStr[i]
+                if self.cornerCutDict[cornerStr]:
+                    x,y = p
+                    normConst = math.sqrt((x-xMid)**2 + (y-yMid)**2)
+                    #u = (x-xMid)/normConst
+                    #v = (y-yMid)/normConst
+                    u = (x-xMid)/abs(x-xMid)
+                    v = (y-yMid)/abs(y-yMid)
+                    xx = x + self.cornerCutLen*u/math.sqrt(2.0)
+                    yy = y + self.cornerCutLen*v/math.sqrt(2.0)
+                    pointList.extend([(xx,yy),(x,y)])
         return pointList
 
 
@@ -206,12 +217,15 @@ class FilledRectPathXY(LinearFeedPath):
 
 class FilledRectWithCornerCutPathXY(LinearFeedPath):
 
-    def __init__(self,point0,point1,step,number,cutLen):
+    defaultCornerCutDict = RectWithCornerCutPathXY.defaultCornerCutDict
+
+    def __init__(self, point0, point1, step, number, cutLen, cornerCutDict=defaultCornerCutDict):
         self.point0 = point0
         self.point1 = point1
         self.step = abs(step)
         self.number = number
         self.cutLen = cutLen
+        self.cornerCutDict = cornerCutDict
 
     @property
     def pointList(self):
@@ -224,7 +238,8 @@ class FilledRectWithCornerCutPathXY(LinearFeedPath):
         cornerCutPath = RectWithCornerCutPathXY(
                 self.point0, 
                 self.point1, 
-                self.cutLen
+                self.cutLen,
+                self.cornerCutDict
                 )
         pointList = cornerCutPath.pointList + filledPath.pointList[5:]
         return pointList
@@ -602,6 +617,13 @@ if __name__ == '__main__':
         prog.add(RectWithCornerCutPathXY(p,q,cutLen))
 
     if 0:
+        p = (0,0)
+        q = (4,5)
+        cutLen = 0.5
+        cornerCutDict = {'00':True,'11':True}
+        prog.add(RectWithCornerCutPathXY(p,q,cutLen,cornerCutDict=cornerCutDict))
+
+    if 0:
         p = ( 1.0,  1.0)
         q = (-1.0, -1.0)
         step = 0.1
@@ -610,6 +632,18 @@ if __name__ == '__main__':
 
         prog.add(Comment('FilledRectWithCornerCutPathXY'))
         prog.add(FilledRectWithCornerCutPathXY(p,q,step,num,cutLen))
+        prog.add(Space())
+
+    if 1:
+        p = ( 1.0,  1.0)
+        q = (-1.0, -1.0)
+        step = 0.1
+        num = 5
+        cutLen = 0.25
+        cornerCutDict = {'11':True}
+
+        prog.add(Comment('FilledRectWithCornerCutPathXY'))
+        prog.add(FilledRectWithCornerCutPathXY(p,q,step,num,cutLen,cornerCutDict=cornerCutDict))
         prog.add(Space())
 
     if 0:
@@ -695,7 +729,7 @@ if __name__ == '__main__':
         prog.add(Comment('UniDirRasterRectPathYZ'))
         prog.add(UniDirRasterRectPathYZ(p,q,step,cutY,retY,direction='y'))
 
-    if 1:
+    if 0:
         p = 2, 0
         q = 0,-1
         step = 0.05
