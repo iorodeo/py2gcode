@@ -336,7 +336,7 @@ class BiDirRasterRectPath(LinearFeedPath):
     @property
     def pointList(self):
         n = getCoordOrder(self.direction,self.plane)
-        pointList = getBiDirRasterRectPointList(
+        pointList = getBiDirRasterRect(
                 self.point0[::n],
                 self.point1[::n],
                 self.step,
@@ -363,7 +363,7 @@ class UniDirRasterRectPath(LinearFeedPath):
     def pointList(self):
         n = getCoordOrder(self.direction,self.plane)
         rasterKeys = PLANE_COORD[self.plane][::n] + (PLANE_NORM_COORD[self.plane],)
-        pointList = getUniDirRasterRectPath(
+        pointList = getUniDirRasterRect(
                 self.point0[::n],
                 self.point1[::n],
                 self.step,
@@ -425,7 +425,7 @@ def getCoordOrder(direction,plane):
     else:
         return -1
 
-def getBiDirRasterRectPointList(point0,point1,step,keys=('x','y')):
+def getBiDirRasterRect(point0,point1,step,keys=('x','y')):
     """
     Generates a bi-directional rastered rectangle  path defined by
     point0=(x0,y0) and point1=(x1,y1). The raster scan is in the direction of
@@ -471,7 +471,7 @@ def getBiDirRasterRectPointList(point0,point1,step,keys=('x','y')):
     return pointList
 
 
-def getUniDirRasterRectPath(point0,point1,step,cutZ,retZ,keys=('x','y','z')):
+def getUniDirRasterRect(point0,point1,step,cutZ,retZ,keys=('x','y','z')):
     """
     Generates a uni-directional rastered rectangle path.
 
