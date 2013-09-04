@@ -140,7 +140,10 @@ class GCodeHelicalMotion(GCodeCmd):
         for name in self.motionArgs:
             value = self.motionDict[name]
             if value is not None:
-                cmdList.append('{0}{1}'.format(name.upper(),float(value)))
+                if name == 'p':
+                    cmdList.append('{0}{1}'.format(name.upper(),int(value)))
+                else:
+                    cmdList.append('{0}{1:1.8f}'.format(name.upper(),float(value)))
         return cmdList
 
 
@@ -491,11 +494,11 @@ class SelectPlane(GCodeCmd):
 
     planeToCodeDict = {
             'xy': 'G17', 
-            'zx': 'G18', 
+            'xz': 'G18',
             'yz': 'G19', 
             'uv': 'G17.1', 
-            'wu': 'G18.1', 
-            'vw': 'G19.1'
+            'uw': 'G18.1',
+            'vw': 'G19.1',
             }
 
     def __init__(self,plane):
@@ -510,34 +513,34 @@ class SelectPlaneXY(SelectPlane):
         super(SelectPlaneXY,self).__init__('xy')
 
 
-class SelectPlaneZX(SelectPlane):
+class SelectPlaneXZ(SelectPlane):
 
     def __init__(self):
-        super(SelectPlaneXY,self).__init__('zx')
+        super(SelectPlaneXZ,self).__init__('xz')
 
 
 class SelectPlaneYZ(SelectPlane):
 
     def __init__(self):
-        super(SelectPlaneXY,self).__init__('yz')
+        super(SelectPlaneYZ,self).__init__('yz')
         
 
 class SelectPlaneUV(SelectPlane):
 
     def __init__(self):
-        super(SelectPlaneXY,self).__init__('uv')
+        super(SelectPlaneUV,self).__init__('uv')
 
 
-class SelectPlaneWU(SelectPlane):
+class SelectPlaneUW(SelectPlane):
 
     def __init__(self):
-        super(SelectPlaneXY,self).__init__('wu')
+        super(SelectPlaneUW,self).__init__('uw')
 
 
 class SelectPlaneVW(SelectPlane):
 
     def __init__(self):
-        super(SelectPlaneXY,self).__init__('vw')
+        super(SelectPlaneVW,self).__init__('vw')
 
 
 # Cutter radius compensation
