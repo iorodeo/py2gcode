@@ -371,30 +371,30 @@ class CircArcPath(GCodeProg):
 
 class CircPath(CircArcPath):
 
-    def __init__(self,center,radius,startAng=0,turns=1,plane='xy',direction='cw'):
+    def __init__(self,center,radius,startAng=0,plane='xy',direction='cw',turns=1):
+        checkCircPathTurns(turns)
         self.startAng = float(startAng)
         self.turns = int(turns)
-        if self.turns < 1:
-            raise ValueError, 'number of turns must >= 1'
         ang = self.startAng, self.startAng + self.turns*360
         super(CircPath,self).__init__(center,radius,ang=ang,plane=plane,direction=direction)
 
 class FilledCircPath(GCodeProg):
 
-    def __init__(self,center,radius,step,number,startAng=0,plane='xy',direction='cw'):
+    def __init__(self,center,radius,step,number,startAng=0,plane='xy',direction='cw',turns=1):
         super(FilledCircPath,self).__init__()
         checkFilledCircStep(radius,step)
         checkPlane(plane)
         checkHelicalDirection(direction)
+        checkCircPathTurns(turns)
 
         self.center = float(center[0]), float(center[1])
         self.radius = float(radius) 
         self.step = step
         self.number = int(number)
         self.startAng = float(startAng)
-
         self.plane = plane
         self.direction = direction
+        self.turns = int(turns)
         self.makeListOfCmds()
 
     def makeListOfCmds(self):
@@ -408,7 +408,8 @@ class FilledCircPath(GCodeProg):
                     currRadius,
                     startAng=self.startAng,
                     plane=self.plane,
-                    direction=self.direction
+                    direction=self.direction,
+                    turns=self.turns,
                     )
             self.listOfCmds.extend(circPath.listOfCmds)
 
@@ -454,6 +455,13 @@ def checkCircPathAng(ang):
     """
     if not ang[0] < ang[1]: 
         raise ValueError, 'initial angle must be < final angle'
+
+def checkCircPathTurns(turns):
+    """
+    Checks the validity of the turns argument for circular  paths.
+    """
+    if int(turns) < 1:
+        raise ValueError, 'number of turns must >= 1'
 
 def checkPlane(plane): 
     """
@@ -778,8 +786,9 @@ if __name__ == '__main__':
         startAng = 90
         direction = 'cw'
         plane = 'xy'
+        turns = 2
         prog.add(Comment('CircPath'))
-        prog.add(CircPath(center,radius,startAng=startAng,plane=plane,direction=direction))
+        prog.add(CircPath(center,radius,startAng=startAng,plane=plane,direction=direction,turns=turns))
 
     if 1:
 
@@ -790,8 +799,18 @@ if __name__ == '__main__':
         startAng = -90
         direction = 'ccw'
         plane = 'xy'
+        turns = 2
         prog.add(Comment('FilledCircPath'))
-        filledCircPath = FilledCircPath(center,radius,step,num,startAng=startAng,plane=plane,direction=direction)
+        filledCircPath = FilledCircPath(
+                center,
+                radius,
+                step,
+                num,
+                startAng=startAng,
+                plane=plane,
+                direction=direction,
+                turns=turns
+                )
         prog.add(filledCircPath)
 
 
