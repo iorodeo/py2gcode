@@ -17,6 +17,8 @@ limitations under the License.
 """
 from __future__ import print_function
 
+
+
 # GCode program
 # -----------------------------------------------------------------------------
 class GCodeProg(object):
@@ -46,6 +48,32 @@ class GCodeProg(object):
     def write(self,filename):
         with open(filename,'w') as f:
             f.write(self.__str__());
+
+
+# Basic program starts (TODO: move this to separate module)
+# ----------------------------------------------------------------------------------
+
+class GenericStart(GCodeProg):
+
+    """
+    Simple startup routine ... cancels tool offset, cutter compensation,
+    puts system in absolute mode, set units, sets feedrate (optional). 
+    """
+
+    def __init__(self,feedrate=None, units='in',coord=1,comment=True):
+        super(GenericStart,self).__init__()
+        self.add(Space())
+        self.add(Comment('Generic Start'))
+        self.add(CancelCutterCompensation(),comment=comment)
+        self.add(CancelToolLengthOffset(),comment=comment)
+        self.add(CancelCannedCycle(),comment=comment)
+        self.add(CoordinateSystem(coord),comment=comment)
+        self.add(AbsoluteMode(),comment=comment)
+        self.add(Units(units),comment=comment)
+        self.add(ExactPathMode(),comment=comment)
+        if feedrate is not None:
+            self.add(FeedRate(feedrate),comment=comment)
+
 
 # Base classes
 # -----------------------------------------------------------------------------

@@ -16,7 +16,7 @@ limitations under the License.
 
 """
 import math
-from gcode_cmds import *
+import gcode_cmd  
 
 # Constants
 # ----------------------------------------------------------------------------------
@@ -26,39 +26,14 @@ HELICAL_DIRECTIONS = ('cw', 'ccw')
 HELICAL_OFFSETS = {'xy': ('i','j'), 'xz': ('i', 'k'), 'yz': ('j', 'k')}
 
 
-# Basic program starts (TODO: move this to separate module)
-# ----------------------------------------------------------------------------------
-
-class GenericStart(GCodeProg):
-
-    """
-    Simple startup routine ... cancels tool offset, cutter compensation,
-    puts system in absolute mode, set units, sets feedrate (optional). 
-    """
-
-    def __init__(self,feedrate=None, units='in',coord=1,comment=True):
-        super(GenericStart,self).__init__()
-        self.add(Space())
-        self.add(Comment('Generic Start'))
-        self.add(CancelCutterCompensation(),comment=comment)
-        self.add(CancelToolLengthOffset(),comment=comment)
-        self.add(CancelCannedCycle(),comment=comment)
-        self.add(CoordinateSystem(coord),comment=comment)
-        self.add(AbsoluteMode(),comment=comment)
-        self.add(Units(units),comment=comment)
-        self.add(ExactPathMode(),comment=comment)
-        if feedrate is not None:
-            self.add(FeedRate(feedrate),comment=comment)
-
-
 # Rectangular paths
 # ----------------------------------------------------------------------------------
 
-class RectPath(GCodeProg):
+class RectPath(gcode_cmd.GCodeProg):
     """
-    Rectangular path made of LinearFeeds which is defined by points 'point0',
+    Rectangular path made of gcode_cmd.LinearFeeds which is defined by points 'point0',
     point1' and the selected plane. Note, prior to rectangle tool is moved from
-    current position to start point p via a LinearFeed.  There is no move to
+    current position to start point p via a gcode_cmd.LinearFeed.  There is no move to
     safe height etc.
 
     Note, point0 is the start and end point of the path.
@@ -77,10 +52,10 @@ class RectPath(GCodeProg):
         x1, y1 = self.point1 
         pointList = [(x0,y0), (x0,y1), (x1,y1), (x1,y0), (x0,y0)]
         kx, ky = PLANE_COORD[self.plane]
-        self.listOfCmds = [LinearFeed(**{kx: x, ky: y}) for x,y in pointList]
+        self.listOfCmds = [gcode_cmd.LinearFeed(**{kx: x, ky: y}) for x,y in pointList]
 
 
-class RectWithCornerCutPath(GCodeProg):
+class RectWithCornerCutPath(gcode_cmd.GCodeProg):
 
     """
     Rectangular path in specified plane  with radial corner  cuts.
@@ -132,14 +107,16 @@ class RectWithCornerCutPath(GCodeProg):
                     v = (y-yMid)/abs(y-yMid)
                     xCut = x + self.cornerCutLen*u/math.sqrt(2.0)
                     yCut = y + self.cornerCutLen*v/math.sqrt(2.0)
-                    self.listOfCmds.append(LinearFeed(**{kx: xCut, ky: yCut})) 
-                    self.listOfCmds.append(LinearFeed(**{kx: x, ky: y}))
+                    cmd = gcode_cmd.LinearFeed(**{kx: xCut, ky: yCut})
+                    self.listOfCmds.append(cmd) 
+                    cmd = gcode_cmd.LinearFeed(**{kx: x, ky: y})
+                    self.listOfCmds.append(cmd)
 
 
-class FilledRectPath(GCodeProg): 
+class FilledRectPath(gcode_cmd.GCodeProg): 
 
     """ 
-    Filled Rectangular path in xy plane made up of LinearFeeds. Path is defined
+    Filled Rectangular path in xy plane made up of gcode_cmd.LinearFeeds. Path is defined
     by which is defined by point0, point1 and the step size and the number of
     steps to take.
     """
@@ -198,7 +175,7 @@ class FilledRectPath(GCodeProg):
                 break
 
 
-class FilledRectWithCornerCutPath(GCodeProg):
+class FilledRectWithCornerCutPath(gcode_cmd.GCodeProg):
 
     defaultCornerCutDict = RectWithCornerCutPath.defaultCornerCutDict
 
@@ -242,7 +219,7 @@ class FilledRectWithCornerCutPath(GCodeProg):
         self.listOfCmds = cornerCutPath.listOfCmds + filledPath.listOfCmds[5:]
 
 
-class BiDirRasterRectPath(GCodeProg):
+class BiDirRasterRectPath(gcode_cmd.GCodeProg):
 
     """
     Generates a bi-direction rastered rectangle path. The rectangle is
@@ -271,7 +248,7 @@ class BiDirRasterRectPath(GCodeProg):
                 keys = PLANE_COORD[self.plane][::n]
                 )
 
-class UniDirRasterRectPath(GCodeProg):
+class UniDirRasterRectPath(gcode_cmd.GCodeProg):
 
     def __init__(self,point0,point1,step,cutLevel,retLevel,plane='xy',direction='x'):
         super(UniDirRasterRectPath,self).__init__()
@@ -305,7 +282,7 @@ class UniDirRasterRectPath(GCodeProg):
 
 
 
-class CircArcPath(GCodeProg):
+class CircArcPath(gcode_cmd.GCodeProg):
 
     def __init__(self, center, radius, ang=(0.0,360.0), plane='xy',direction='cw'):
         """
@@ -350,18 +327,18 @@ class CircArcPath(GCodeProg):
         y1 = cy + r*math.sin(angRad[1])
 
         if self.plane == 'xy':
-            helixMotionClass = HelicalMotionXY
+            helixMotionClass = gcode_cmd.HelicalMotionXY
         elif plane == 'xz':
-            helixMotionClass = HelicalMotionXZ
+            helixMotionClass = gcode_cmd.HelicalMotionXZ
         elif plane == 'yz':
-            helixMotionClass = HelicalMotionYZ
+            helixMotionClass = gcode_cmd.HelicalMotionYZ
         else:
             raise ValueError, 'uknown plane {0}'.format(plane)
 
         self.listOfCmds = []
         # Add linear feed to start position
         cmdArgs = {kx:x0, ky:y0}
-        self.listOfCmds.append(LinearFeed(**cmdArgs))
+        self.listOfCmds.append(gcode_cmd.LinearFeed(**cmdArgs))
 
         # Add helical feed
         cmdArgs = {kx:x1, ky:y1, ki:cx-x0, kj:cy-y0, 'd':self.direction}
@@ -378,7 +355,7 @@ class CircPath(CircArcPath):
         ang = self.startAng, self.startAng + self.turns*360
         super(CircPath,self).__init__(center,radius,ang=ang,plane=plane,direction=direction)
 
-class FilledCircPath(GCodeProg):
+class FilledCircPath(gcode_cmd.GCodeProg):
 
     def __init__(self,center,radius,step,number,startAng=0,plane='xy',direction='cw',turns=1):
         super(FilledCircPath,self).__init__()
@@ -525,19 +502,19 @@ def getBiDirRasterRect(point0,point1,step,keys=('x','y')):
     # Generate raster
     x, y = x0, y0
     kx, ky = keys
-    cmdList.append(LinearFeed(**{kx: x,ky: y}))
+    cmdList.append(gcode_cmd.LinearFeed(**{kx: x,ky: y}))
     while 1:
         x = getAlternateX(x)
-        cmdList.append(LinearFeed(**{kx: x,ky: y}))
+        cmdList.append(gcode_cmd.LinearFeed(**{kx: x,ky: y}))
         if rasterDone(y):
             break
         y += dy
-        cmdList.append(LinearFeed(**{kx: x,ky: y}))
+        cmdList.append(gcode_cmd.LinearFeed(**{kx: x,ky: y}))
     if y != y1:
         y = y1
-        cmdList.append(LinearFeed(**{kx: x,ky: y}))
+        cmdList.append(gcode_cmd.LinearFeed(**{kx: x,ky: y}))
         x = getAlternateX(x)
-        cmdList.append(LinearFeed(**{kx: x,ky: y}))
+        cmdList.append(gcode_cmd.LinearFeed(**{kx: x,ky: y}))
     return cmdList
 
 
@@ -572,14 +549,14 @@ def getUniDirRasterRect(point0,point1,step,cutZ,retZ,keys=('x','y','z')):
     kx, ky, kz = keys
     isFirst = True
     isLast = False
-    cmdList.append(LinearFeed(**{kx: x, ky: y, kz: cutZ}))  
+    cmdList.append(gcode_cmd.LinearFeed(**{kx: x, ky: y, kz: cutZ}))  
     while 1:
         x = getAlternateX(x)
         if x==x0:
-            cmdList.append(LinearFeed(**{kz: retZ}))
-            cmdList.append(RapidMotion(**{kx:x, ky:y}))
+            cmdList.append(gcode_cmd.LinearFeed(**{kz: retZ}))
+            cmdList.append(gcode_cmd.RapidMotion(**{kx:x, ky:y}))
         else:
-            cmdList.append(LinearFeed(**{kz: cutZ}))
+            cmdList.append(gcode_cmd.LinearFeed(**{kz: cutZ}))
             if isFirst:
                 isFirst = False
             else:
@@ -587,8 +564,8 @@ def getUniDirRasterRect(point0,point1,step,cutZ,retZ,keys=('x','y','z')):
                 if outOfBounds(y):
                     y = y1
                     isLast = True
-                cmdList.append(LinearFeed(**{ky: y}))
-            cmdList.append(LinearFeed(**{kx: x, ky: y}))
+                cmdList.append(gcode_cmd.LinearFeed(**{ky: y}))
+            cmdList.append(gcode_cmd.LinearFeed(**{kx: x, ky: y}))
         if isLast:
             break
     return cmdList
@@ -598,17 +575,17 @@ def getUniDirRasterRect(point0,point1,step,cutZ,retZ,keys=('x','y','z')):
 if __name__ == '__main__':
 
     # Test program
-    prog = GCodeProg()
+    prog = gcode_cmd.GCodeProg()
 
-    prog.add(GenericStart())
-    prog.add(Space())
-    prog.add(FeedRate(100.0))
-    prog.add(Space())
+    prog.add(gcode_cmd.GenericStart())
+    prog.add(gcode_cmd.Space())
+    prog.add(gcode_cmd.FeedRate(100.0))
+    prog.add(gcode_cmd.Space())
 
     if 0:
         p = 0,0
         q = 1,2
-        prog.add(Comment('RectPath'))
+        prog.add(gcode_cmd.Comment('RectPath'))
         prog.add(RectPath(p,q,plane='xy'))
 
     if 0:
@@ -616,9 +593,9 @@ if __name__ == '__main__':
         q = (-1.0, -1.0)
         step = 0.1
         num = 8 
-        prog.add(Comment('FilledRectPath'))
+        prog.add(gcode_cmd.Comment('FilledRectPath'))
         prog.add(FilledRectPath(p,q,step,num))
-        prog.add(Space())
+        prog.add(gcode_cmd.Space())
 
     if 0:
         p = (0,0)
@@ -640,9 +617,9 @@ if __name__ == '__main__':
         num = 5
         cutLen = 0.25
 
-        prog.add(Comment('FilledRectWithCornerCutPath'))
+        prog.add(gcode_cmd.Comment('FilledRectWithCornerCutPath'))
         prog.add(FilledRectWithCornerCutPath(p,q,step,num,cutLen,plane='xy'))
-        prog.add(Space())
+        prog.add(gcode_cmd.Space())
 
     if 0:
         p = ( 1.0,  1.0)
@@ -652,10 +629,10 @@ if __name__ == '__main__':
         cutLen = 0.25
         cornerCutDict = {'11':True}
 
-        prog.add(Comment('FilledRectWithCornerCutPath'))
+        prog.add(gcode_cmd.Comment('FilledRectWithCornerCutPath'))
         path = FilledRectWithCornerCutPath(p,q,step,num,cutLen,cornerCutDict=cornerCutDict,plane='xy')
         prog.add(path)
-        prog.add(Space())
+        prog.add(gcode_cmd.Space())
 
     if 0:
         prog.add(QuadraticBSplineXY(1.0,1.0, 1.0, 0.5))
@@ -664,42 +641,42 @@ if __name__ == '__main__':
         p = -5.0, -1.5
         q =  5.0,  1.5
         step = 0.1
-        prog.add(Comment('BiDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('BiDirRasterRectPath'))
         prog.add(BiDirRasterRectPath(p,q,step,plane='xy',direction='x'))
 
     if 0:
         p = -5.0, -1.5
         q =  5.0,  1.5
         step = 0.1
-        prog.add(Comment('BiDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('BiDirRasterRectPath'))
         prog.add(BiDirRasterRectPath(p,q,step,plane='xy',direction='y'))
 
     if 0:
         p = 3, 1
         q = 0, 0
         step = 0.05
-        prog.add(Comment('BiDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('BiDirRasterRectPath'))
         prog.add(BiDirRasterRectPath(p,q,step,plane='xz',direction='x'))
 
     if 0:
         p = 3, 1
         q = 0, 0
         step = 0.05
-        prog.add(Comment('BiDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('BiDirRasterRectPath'))
         prog.add(BiDirRasterRectPath(p,q,step,plane='xz',direction='z'))
 
     if 0:
         p = 1.5, 1
         q = 0, 0
         step = 0.05
-        prog.add(Comment('BiDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('BiDirRasterRectPath'))
         prog.add(BiDirRasterRectPath(p,q,step,plane='yz',direction='y'))
 
     if 0:
         p = 1.5, 1
         q = 0, 0
         step = 0.05
-        prog.add(Comment('BiDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('BiDirRasterRectPath'))
         prog.add(BiDirRasterRectPath(p,q,step,plane='yz',direction='z'))
 
     if 0:
@@ -708,7 +685,7 @@ if __name__ == '__main__':
         step = 0.05
         cutZ = -0.1 
         retZ =  0.1
-        prog.add(Comment('UniDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('UniDirRasterRectPath'))
         prog.add(UniDirRasterRectPath(p,q,step,cutZ,retZ,plane='xy',direction='x'))
 
     if 0:
@@ -717,7 +694,7 @@ if __name__ == '__main__':
         step = 0.05
         cutZ = -0.1 
         retZ =  0.1
-        prog.add(Comment('UniDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('UniDirRasterRectPath'))
         prog.add(UniDirRasterRectPath(p,q,step,cutZ,retZ,plane='xy',direction='y'))
 
     if 0:
@@ -726,7 +703,7 @@ if __name__ == '__main__':
         step = 0.05
         cutY = 0.1 
         retY = -0.1
-        prog.add(Comment('UniDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('UniDirRasterRectPath'))
         prog.add(UniDirRasterRectPath(p,q,step,cutY,retY,plane='xz',direction='x'))
 
     if 0:
@@ -735,7 +712,7 @@ if __name__ == '__main__':
         step = 0.05
         cutY = 0.1 
         retY = -0.1
-        prog.add(Comment('UniDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('UniDirRasterRectPath'))
         prog.add(UniDirRasterRectPath(p,q,step,cutY,retY,plane='xz',direction='z'))
 
     if 0:
@@ -744,7 +721,7 @@ if __name__ == '__main__':
         step = 0.05
         cutY = 0.1 
         retY = -0.1
-        prog.add(Comment('UniDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('UniDirRasterRectPath'))
         prog.add(UniDirRasterRectPath(p,q,step,cutY,retY,plane='yz',direction='y'))
 
     if 0:
@@ -753,7 +730,7 @@ if __name__ == '__main__':
         step = 0.05
         cutY = 0.1 
         retY = -0.1
-        prog.add(Comment('UniDirRasterRectPath'))
+        prog.add(gcode_cmd.Comment('UniDirRasterRectPath'))
         prog.add(UniDirRasterRectPath(p,q,step,cutY,retY,plane='yz',direction='z'))
 
     if 0:
@@ -764,7 +741,7 @@ if __name__ == '__main__':
         #ang = 0,2*360
         direction = 'ccw'
         plane = 'xy'
-        prog.add(Comment('CircArcPath'))
+        prog.add(gcode_cmd.Comment('CircArcPath'))
         prog.add(CircArcPath(center,radius,ang=ang,direction=direction,plane=plane))
 
     if 0:
@@ -774,7 +751,7 @@ if __name__ == '__main__':
         ang = 0,360
         direction = 'ccw'
         plane = 'xz'
-        prog.add(Comment('CircArcPath'))
+        prog.add(gcode_cmd.Comment('CircArcPath'))
         prog.add(SelectPlaneXZ())
         prog.add(CircArcPath(center,radius,ang=ang,direction=direction,plane=plane))
         prog.add(SelectPlaneXY())
@@ -787,7 +764,7 @@ if __name__ == '__main__':
         direction = 'cw'
         plane = 'xy'
         turns = 2
-        prog.add(Comment('CircPath'))
+        prog.add(gcode_cmd.Comment('CircPath'))
         prog.add(CircPath(center,radius,startAng=startAng,plane=plane,direction=direction,turns=turns))
 
     if 1:
@@ -800,7 +777,7 @@ if __name__ == '__main__':
         direction = 'ccw'
         plane = 'xy'
         turns = 2
-        prog.add(Comment('FilledCircPath'))
+        prog.add(gcode_cmd.Comment('FilledCircPath'))
         filledCircPath = FilledCircPath(
                 center,
                 radius,
@@ -815,8 +792,8 @@ if __name__ == '__main__':
 
 
 
-    prog.add(Space())
-    prog.add(End(),comment=True)
+    prog.add(gcode_cmd.Space())
+    prog.add(gcode_cmd.End(),comment=True)
 
     print(prog)
     prog.write('test.ngc')
