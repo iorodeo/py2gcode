@@ -24,6 +24,7 @@ PLANE_COORD = {'xy': ('x','y'), 'xz': ('x','z'), 'yz': ('y','z')}
 PLANE_NORM_COORD = {'xy': 'z', 'xz': 'y', 'yz': 'x'}
 HELICAL_DIRECTIONS = ('cw', 'ccw')
 HELICAL_OFFSETS = {'xy': ('i','j'), 'xz': ('i', 'k'), 'yz': ('j', 'k')}
+MINIMUM_NONZERO_RADIUS = 1.0e-8
 
 
 # Rectangular paths
@@ -149,15 +150,15 @@ class FilledRectPath(gcode_cmd.GCodeProg):
             def xDoneTest(x0,x1):
                 return x0 < x1
         if y0 < y1:
-            yLen0 =  self.step
-            yLen1 = -self.step
+            dy0 =  self.step
+            dy1 = -self.step
             def yDoneTest(y0,y1):
                 return y0 > y1
         else:
-            yLen0 = -self.step
-            yLen1 =  self.step
+            dy0 = -self.step
+            dy1 =  self.step
             def yDoneTest(y0,y1):
-                return y0 <= y1
+                return y0 < y1
 
         self.listOfCmds = []
         for i in range(self.number):
@@ -167,11 +168,26 @@ class FilledRectPath(gcode_cmd.GCodeProg):
             self.listOfCmds.extend(rectPath.listOfCmds)
             x0 += dx0
             x1 += dx1
-            y0 += yLen0
-            y1 += yLen1
+            y0 += dy0
+            y1 += dy1
+            if xDoneTest(x0,x1) and yDoneTest(y0,y1):
+                kx, ky = PLANE_COORD[self.plane]
+                cmd = LinearFeed(**{kx: 0.5*(x0+x1), ky: 0.5*(y0,y1)})
+                self.listOfCmds.append(cmd)
+                break
             if xDoneTest(x0,x1):
+                x0, x1 = (0.5*(x0+x1), 0.5*(x0+x1))
+                p0 = (x0,y0)
+                p1 = (x1,y1)
+                rectPath = RectPath(p0,p1,plane=self.plane)
+                self.listOfCmds.extend(rectPath.listOfCmds)
                 break
             if yDoneTest(y0,y1):
+                y0, y1 = (0.5*(y0+y1), 0.5*(y0+y1))
+                p0 = (x0,y0)
+                p1 = (x1,y1)
+                rectPath = RectPath(p0,p1,plane=self.plane)
+                self.listOfCmds.extend(rectPath.listOfCmds)
                 break
 
 
@@ -378,7 +394,7 @@ class FilledCircPath(gcode_cmd.GCodeProg):
         self.listOfCmds = []
         for i in range(self.number):
             currRadius = self.radius - i*self.step
-            if currRadius <= 0:
+            if currRadius <= MINIMUM_NONZERO_RADIUS:
                 break
             circPath = CircPath(
                     self.center,
@@ -423,7 +439,7 @@ def checkFilledCircStep(radius,step):
     """
     Checks that the step size is small enough for filled circular paths.
     """
-    if step > radius:
+    if step > 2*radius:
         raise ValueError, 'step size > radius'
 
 def checkCircPathAng(ang):
