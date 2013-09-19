@@ -1,4 +1,3 @@
-
 """
 
 Copyright 2013 IO Rodeo Inc. 
@@ -375,8 +374,7 @@ class RectAnnulusPocketXY(PocketBase):
                         plane='xy'
                         )
             self.listOfCmds.extend(rectPath.listOfCmds)
-
-            if abs(outerX0 - innerX0) >  thickness - (numStep*stepSize + toolDiam):
+            if abs(outerX0 - innerX0) >  thickness - ((numStep-1)*stepSize + toolDiam):
                 rectPath = cnc_path.RectPath(innerPoint0, innerPoint1)
                 self.listOfCmds.extend(rectPath.listOfCmds)
 

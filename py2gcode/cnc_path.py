@@ -172,8 +172,9 @@ class FilledRectPath(gcode_cmd.GCodeProg):
             y1 += dy1
             if xDoneTest(x0,x1) and yDoneTest(y0,y1):
                 kx, ky = PLANE_COORD[self.plane]
-                cmd = LinearFeed(**{kx: 0.5*(x0+x1), ky: 0.5*(y0,y1)})
-                self.listOfCmds.append(cmd)
+                # TO DO - seems to be a bug !!!
+                #cmd = gcode_cmd.LinearFeed(**{kx: 0.5*(x0+x1), ky: 0.5*(y0+y1)})
+                #self.listOfCmds.append(cmd)
                 break
             if xDoneTest(x0,x1):
                 x0, x1 = (0.5*(x0+x1), 0.5*(x0+x1))
