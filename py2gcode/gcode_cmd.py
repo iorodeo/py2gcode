@@ -323,7 +323,33 @@ class QuadraticBSplineXY(GCodeCmd):
 # Canned Cycles
 # -----------------------------------------------------------------------------
 
-class DrillCycle(GCodeCmd):
+class DrillCycleBase(GCodeCmd):
+
+    """ Base class for drilling cycles """
+
+    kwargsKeys =  ()
+    requiredKeys = ()
+
+    def __init__(self,*args, **kwargs):
+        super(DrillCycleBase,self).__init__()
+        kwargs = normalizeToKwargs(self.kwargsKeys,args,kwargs)
+        checkRequiredKwargs(self.requiredKeys,kwargs) 
+        self.params = kwargs
+
+    def getCmdList(self):
+        cmdList = super(DrillCycleBase,self).getCmdList()
+        for name in self.kwargsKeys:
+            value = self.params[name]
+            if value is not None:
+                if name != 'l':
+                    value = float(value)
+                else:
+                    value = int(value)
+                cmdList.append('{0}{1}'.format(name.upper(),value))
+        return cmdList
+
+
+class DrillCycle(DrillCycleBase):
 
     kwargsKeys =  ('x','y','z','r','l','p')
     requiredKeys = ('x','y','z','r')
@@ -337,12 +363,7 @@ class DrillCycle(GCodeCmd):
         l = (optional) number of repetitions
         p = (optional) dwell time in secs 
         """
-        super(DrillCycle,self).__init__()
-        kwargs = normalizeToKwargs(self.kwargsKeys,args,kwargs)
-        for k in self.requiredKeys:
-            if kwargs[k] is None:
-                raise ValueError, 'missing value for parameter {0}'.format(k)
-        self.params = kwargs
+        super(DrillCycle,self).__init__(*args,**kwargs)
         if self.params['p'] is None:
             self.code = 'G81'
             self.commentStr = 'Drill cycle'
@@ -350,23 +371,26 @@ class DrillCycle(GCodeCmd):
             self.code = 'G82'
             self.commentStr = 'Drill cycle w/ dwell'
 
-    def getCmdList(self):
-        cmdList = super(DrillCycle,self).getCmdList()
-        for name in self.kwargsKeys:
-            value = self.params[name]
-            if value is not None:
-                if name != 'l':
-                    value = float(value)
-                else:
-                    value = int(value)
-                cmdList.append('{0}{1}'.format(name.upper(),value))
-        return cmdList
-            
 
-class PeckDrillCycle(GCodeCmd):
+class PeckDrillCycle(DrillCycleBase):
 
-    def __init__(self):
-        pass
+    kwargsKeys =  ('x','y','z','r','l','q')
+    requiredKeys = ('x','y','z','r')
+
+    def __init__(self,*args,**kwargs):
+        """
+        x = drill x position
+        y = drill y position
+        z = drill z posiion (final)
+        r = feed start/restract z position
+        l = (optional) number of repetitions
+        q = increment along z axis (must be > 0) 
+        """
+        super(PeckDrillCycle,self).__init__(*args,**kwargs)
+        if self.params['q'] <= 0:
+            raise ValueError, 'increment q must be >= 0'
+        self.code = 'G83'
+        
 
 # Distance Mode 
 # -----------------------------------------------------------------------------
@@ -747,6 +771,13 @@ def normalizeToKwargs(expectedKeys,argsTuple,kwargsDict):
     kwargsDictNorm.update(kwargsDict)
     return kwargsDictNorm
 
+
+def checkRequiredKwargs(requiredKeys,kwargsDict): 
+    for k in requiredKeys: 
+        if kwargsDict[k] is None: 
+            raise ValueError, 'missing value for parameter {0}'.format(k)
+
+
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
 
@@ -887,6 +918,9 @@ if __name__ == '__main__':
     print(cmd)
 
     cmd = DrillCycle(math.pi,0,-1.0,0.1,None,1.0)
+    print(cmd)
+
+    cmd = PeckDrillCycle(x=0,y=0,z=-0.5,r=0.1,q=0.1)
     print(cmd)
     
     cmd = QuadraticBSplineXY(1.0,1.0,1.1,1.5)

@@ -140,7 +140,8 @@ class RectPocketXY(PocketBase):
             cornerMargin = 0.0
 
         # Check params
-        assert (overlap >= 0.0 and overlap < 1.0), 'overlap must >=0 and < 1'
+        checkRectPocketOverlap(overlap)
+        checkRectPocketOverlap(overlapFinish)
 
         # Get rectangular path parameters
         if self.param['direction'] == 'cw':
@@ -278,7 +279,8 @@ class RectAnnulusPocketXY(PocketBase):
 
         # Check params
         assert toolDiam <= thickness, 'toolDiam too large for annulus thickness'
-        assert (overlap >= 0.0) and (overlap < 1.0), 'overlap must >=0 and < 1'
+        checkRectPocketOverlap(overlap)
+        checkRectPocketOverlap(overlapFinish)
 
         # Get sign for rectangular toolpaths based on direction 
         if self.param['direction'] == 'cw':
@@ -516,6 +518,13 @@ class CircPocket(PocketBase):
         self.addEndComment()
 
 
+# Utility functions
+# --------------------------------------------------------------------------------------
+def checkRectPocketOverlap(overlap): 
+    minOverlap = (1.0 - 1.0/math.sqrt(2.0))/1.0
+    assertMsg = ' overlap must be >= {0} and < 1.0'.format(minOverlap)
+    assert (overlap >= minOverlap  and overlap < 1.0), assertMsg 
+
 # ---------------------------------------------------------------------------------------
 if __name__ == '__main__':
 
@@ -533,8 +542,8 @@ if __name__ == '__main__':
                 'depth'         : 0.04,
                 'startZ'        : 0.0,
                 'safeZ'         : 0.5,
-                'overlap'       : 0.1,
-                'overlapFinish' : 0.2,
+                'overlap'       : 0.3,
+                'overlapFinish' : 0.5,
                 'maxCutDepth'   : 0.04,
                 'toolDiam'      : 0.25,
                 'cornerCut'     : False,
@@ -544,7 +553,7 @@ if __name__ == '__main__':
 
         pocket = RectPocketXY(param)
 
-    if 0:
+    if 1:
         param = {
                 'centerX'       : 0.0,
                 'centerY'       : 0.0,
@@ -554,8 +563,8 @@ if __name__ == '__main__':
                 'depth'         : 0.1,
                 'startZ'        : 0.0,
                 'safeZ'         : 0.5,
-                'overlap'       : 0.1,
-                'overlapFinish' : 0.1,
+                'overlap'       : 0.3,
+                'overlapFinish' : 0.6,
                 'maxCutDepth'   : 0.04,
                 'toolDiam'      : 0.2,
                 'cornerCut'     : False,
@@ -566,7 +575,7 @@ if __name__ == '__main__':
         pocket = RectAnnulusPocketXY(param)
 
 
-    if 1:
+    if 0:
         param = { 
                 'centerX'        : 0.0, 
                 'centerY'        : 0.0,
