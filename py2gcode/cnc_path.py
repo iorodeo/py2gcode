@@ -25,14 +25,18 @@ PLANE_NORM_COORD = {'xy': 'z', 'xz': 'y', 'yz': 'x'}
 HELICAL_DIRECTIONS = ('cw', 'ccw')
 HELICAL_OFFSETS = {'xy': ('i','j'), 'xz': ('i', 'k'), 'yz': ('j', 'k')}
 MINIMUM_NONZERO_RADIUS = 1.0e-8
-
+PLANE_TO_HELIX_MOTION = {
+        'xy': gcode_cmd.HelicalMotionXY,
+        'xz': gcode_cmd.HelicalMotionXZ, 
+        'yz': gcode_cmd.HelicalMotionYZ,
+        }
 
 # Rectangular paths
 # ----------------------------------------------------------------------------------
 
 class RectPath(gcode_cmd.GCodeProg):
     """
-    Rectangular path made of gcode_cmd.LinearFeeds which is defined by points 'point0',
+    Rectangular path made of LinearFeeds which is defined by points 'point0',
     point1' and the selected plane. Note, prior to rectangle tool is moved from
     current position to start point p via a gcode_cmd.LinearFeed.  There is no move to
     safe height etc.
@@ -54,6 +58,54 @@ class RectPath(gcode_cmd.GCodeProg):
         pointList = [(x0,y0), (x0,y1), (x1,y1), (x1,y0), (x0,y0)]
         kx, ky = PLANE_COORD[self.plane]
         self.listOfCmds = [gcode_cmd.LinearFeed(**{kx: x, ky: y}) for x,y in pointList]
+
+
+class RoundedRectPath(gcode_cmd.GCodeProg):
+    """
+    Rectanglar w/ rounded corners  made up of linear and arc segments. The rectangle is
+    defined by points 'point0' and 'point1'. The radius parameter sets the corner radius. 
+    """
+
+
+    def __init__(self,point0,point1,radius,plane='xy'):
+        super(RoundedRectPath,self).__init__()
+        checkPlane(plane)
+        dx = abs(point1[0] - point0[0])
+        dy = abs(point1[1] - point0[0])
+        if abs(radius) > 0.5*min([dx,dy]):
+            raise ValueError, 'corner radius is too large'
+        self.point0 = point0
+        self.point1 = point1
+        self.radius = abs(radius)
+        self.plane = plane
+        self.makeListOfCmds()
+
+    def makeListOfCmds(self):
+        x0, y0 = self.point0
+        x1, y1 = self.point1
+        radius = self.radius
+        kx, ky = PLANE_COORD[slef.plane]
+        ki, kj = HELICAL_OFFSETS[self.plane]
+        helixMotionclass = PLANE_TO_HELIX_MOTION[self.plane]
+        self.listOfCmds = []
+
+        # Get x and y direction signs
+        sgnX = 1 if x1 > x0 else -1
+        sgnY = 1 if y1 > y0 else -1
+
+        # Get linear feeds and arc segments
+        pointDict = {kx: x0, ky: (y0 + sgnY*radius)}
+        self.listOfCmds.append(gcode_cmd.LinearFeed(**pointDict))
+
+        pointDict = {kx: x0, ky: (y1 - sgnY*radius)}
+        self.listOfCmds.append(gcode_cmd.LinearFeed(**pointDict))
+
+        ########################################################
+        # NOT DONE
+        ########################################################
+
+
+
 
 
 class RectWithCornerCutPath(gcode_cmd.GCodeProg):
@@ -294,6 +346,8 @@ class UniDirRasterRectPath(gcode_cmd.GCodeProg):
                 )
 
 
+
+
 # Circular/Helical paths
 # -----------------------------------------------------------------------------
 
@@ -343,14 +397,8 @@ class CircArcPath(gcode_cmd.GCodeProg):
         x1 = cx + r*math.cos(angRad[1])
         y1 = cy + r*math.sin(angRad[1])
 
-        if self.plane == 'xy':
-            helixMotionClass = gcode_cmd.HelicalMotionXY
-        elif plane == 'xz':
-            helixMotionClass = gcode_cmd.HelicalMotionXZ
-        elif plane == 'yz':
-            helixMotionClass = gcode_cmd.HelicalMotionYZ
-        else:
-            raise ValueError, 'uknown plane {0}'.format(plane)
+        # Get helix motion class based on plane
+        helixMotionClass = PLANE_TO_HELIX_MOTION[self.plane]
 
         self.listOfCmds = []
         # Add linear feed to start position
