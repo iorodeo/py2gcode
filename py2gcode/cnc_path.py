@@ -84,7 +84,7 @@ class RoundedRectPath(gcode_cmd.GCodeProg):
         x0, y0 = self.point0
         x1, y1 = self.point1
         radius = self.radius
-        kx, ky = PLANE_COORD[slef.plane]
+        kx, ky = PLANE_COORD[self.plane]
         ki, kj = HELICAL_OFFSETS[self.plane]
         helixMotionclass = PLANE_TO_HELIX_MOTION[self.plane]
         self.listOfCmds = []
@@ -93,16 +93,31 @@ class RoundedRectPath(gcode_cmd.GCodeProg):
         sgnX = 1 if x1 > x0 else -1
         sgnY = 1 if y1 > y0 else -1
 
-        # Get linear feeds and arc segments
-        pointDict = {kx: x0, ky: (y0 + sgnY*radius)}
-        self.listOfCmds.append(gcode_cmd.LinearFeed(**pointDict))
+        # Get list of points between segments and arcs
+        pointList =  [
+                (x0, y0+sgnY*radius),
+                (x0, y1-sgnY*radius),
+                (x0+sgnX*radius, y1),
+                (x1-sgnX*radius, y1),
+                (x1, y1 - sgnY*radius),
+                (x1, y0 + sgnY*radius),
+                (x1 - sgnX*radius, y0),
+                (x0 + sgnX*radius, y0),
+                (x0, y0+sgnY*radius),
+                ]
 
-        pointDict = {kx: x0, ky: (y1 - sgnY*radius)}
-        self.listOfCmds.append(gcode_cmd.LinearFeed(**pointDict))
+        xStart, yStart = pointList[0]
+        self.listOfCmds.append(gcode_cmd.LinearFeed(**{kx: xStart, ky: yStart}))
+
+
 
         ########################################################
         # NOT DONE
         ########################################################
+
+        # Get first corner arc
+        cx = x0 + sgnX*radius
+        cy = y1 - sgnY*radius
 
 
 
@@ -346,12 +361,8 @@ class UniDirRasterRectPath(gcode_cmd.GCodeProg):
                 )
 
 
-
-
 # Circular/Helical paths
 # -----------------------------------------------------------------------------
-
-
 
 class CircArcPath(gcode_cmd.GCodeProg):
 
@@ -832,7 +843,7 @@ if __name__ == '__main__':
         prog.add(gcode_cmd.Comment('CircPath'))
         prog.add(CircPath(center,radius,startAng=startAng,plane=plane,direction=direction,turns=turns))
 
-    if 1:
+    if 0:
 
         center = 1,1
         radius = 1 
@@ -855,7 +866,12 @@ if __name__ == '__main__':
                 )
         prog.add(filledCircPath)
 
-
+    if 1:
+        point0 = -1.0, -1.0
+        point1 = 1.0,  1.0
+        radius = 0.2
+        roundedRectPath = RoundedRectPath(point0,point1,radius, plane='xy')
+        prog.add(roundedRectPath)
 
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.End(),comment=True)
