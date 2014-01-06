@@ -20,6 +20,8 @@ import math
 import gcode_cmd
 import cnc_path
 
+FLOAT_TOLERANCE = 1.0e-12
+
 class PocketBase(gcode_cmd.GCodeProg):
 
     def __init__(self,param):
@@ -156,8 +158,14 @@ class RectPocketXY(PocketBase):
         point1 = x1,y1
 
         # Lead-in parameters 
-        sgnX = (x1 - x0)/abs(x1 - x0)
-        sgnY = (y1 - y0)/abs(y1 - y0)
+        try:
+            sgnX = (x1 - x0)/abs(x1 - x0)
+        except ZeroDivisionError:
+            sgnX = 1.0
+        try: 
+            sgnY = (y1 - y0)/abs(y1 - y0)
+        except ZeroDivisionError:
+            sgnY = 1.0
         leadInDx = min([maxCutDepth,abs(x1-x0)])
         leadInDy = min([maxCutDepth,abs(y1-y0)])
         leadInX1 = x0 + sgnX*leadInDx
@@ -376,7 +384,10 @@ class RectAnnulusPocketXY(PocketBase):
                         plane='xy'
                         )
             self.listOfCmds.extend(rectPath.listOfCmds)
-            if abs(outerX0 - innerX0) >  thickness - ((numStep-1)*stepSize + toolDiam):
+
+            test0 = abs(outerX0 - innerX0) > FLOAT_TOLERANCE
+            test1 = abs(outerX0 - innerX0) >  (thickness - ((numStep-1)*stepSize + toolDiam)) 
+            if test0 and test1:  
                 rectPath = cnc_path.RectPath(innerPoint0, innerPoint1)
                 self.listOfCmds.extend(rectPath.listOfCmds)
 

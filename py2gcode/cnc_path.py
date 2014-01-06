@@ -492,7 +492,9 @@ def checkFilledRectStep(point0,point1,step):
     x1,y1 = point1
     xLen = abs(x1-x0)
     yLen = abs(y1-y0)
-    if step > xLen or step > yLen:
+    if xLen > 0 and step > xLen:
+        raise ValueError, 'step size too large'
+    if xLen > 0 and step > yLen:
         raise ValueError, 'step size too large'
 
 def checkFilledCircStep(radius,step):
