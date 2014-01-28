@@ -362,8 +362,13 @@ class RectAnnulusPocketXY(PocketBase):
                 passOverlap = overlapFinish
             else:
                 passOverlap = overlap
-            stepSize = toolDiam - passOverlap*toolDiam
-            numStep = int(math.floor(thickness/stepSize))
+
+            stepSizePrelim = toolDiam - passOverlap*toolDiam
+            numStep = int(math.floor((thickness - toolDiam)/stepSizePrelim)) + 1
+            if numStep == 1:
+                stepSize = 0.0
+            else:
+                stepSize = (thickness - toolDiam)/(numStep - 1.0)
 
             if not self.param['cornerCut']:
                 rectPath = cnc_path.FilledRectPath(
@@ -503,6 +508,7 @@ class CircPocket(PocketBase):
 
             stepSize = toolDiam - passOverlap*toolDiam
             numStep = int(math.ceil(adjustedRadius/stepSize))
+
             circPath = cnc_path.FilledCircPath(
                     (cx,cy),
                     adjustedRadius,
