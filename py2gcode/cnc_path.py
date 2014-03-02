@@ -15,8 +15,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 """
+from __future__ import print_function
 import math
 import gcode_cmd  
+import pylab
 
 # Constants
 # ----------------------------------------------------------------------------------
@@ -65,13 +67,12 @@ class RoundedRectPath(gcode_cmd.GCodeProg):
     Rectanglar w/ rounded corners  made up of linear and arc segments. The rectangle is
     defined by points 'point0' and 'point1'. The radius parameter sets the corner radius. 
     """
-
-
     def __init__(self,point0,point1,radius,plane='xy'):
         super(RoundedRectPath,self).__init__()
         checkPlane(plane)
         dx = abs(point1[0] - point0[0])
-        dy = abs(point1[1] - point0[0])
+        dy = abs(point1[1] - point0[1])
+        print(dx, dy)
         if abs(radius) > 0.5*min([dx,dy]):
             raise ValueError, 'corner radius is too large'
         self.point0 = point0
@@ -86,7 +87,7 @@ class RoundedRectPath(gcode_cmd.GCodeProg):
         radius = self.radius
         kx, ky = PLANE_COORD[self.plane]
         ki, kj = HELICAL_OFFSETS[self.plane]
-        helixMotionclass = PLANE_TO_HELIX_MOTION[self.plane]
+        helixMotionClass = PLANE_TO_HELIX_MOTION[self.plane]
         self.listOfCmds = []
 
         # Get x and y direction signs
@@ -95,32 +96,35 @@ class RoundedRectPath(gcode_cmd.GCodeProg):
 
         # Get list of points between segments and arcs
         pointList =  [
-                (x0, y0+sgnY*radius),
-                (x0, y1-sgnY*radius),
-                (x0+sgnX*radius, y1),
-                (x1-sgnX*radius, y1),
-                (x1, y1 - sgnY*radius),
-                (x1, y0 + sgnY*radius),
-                (x1 - sgnX*radius, y0),
-                (x0 + sgnX*radius, y0),
+                (x0, y0+sgnY*radius), 
+                (x0, y1-sgnY*radius), 
+                (x0+sgnX*radius, y1), 
+                (x1-sgnX*radius, y1), 
+                (x1, y1 - sgnY*radius), 
+                (x1, y0 + sgnY*radius), 
+                (x1 - sgnX*radius, y0), 
+                (x0 + sgnX*radius, y0), 
                 (x0, y0+sgnY*radius),
                 ]
+        arcDir = getDirFromPts(pointList[0],pointList[1],pointList[2])
 
-        xStart, yStart = pointList[0]
-        self.listOfCmds.append(gcode_cmd.LinearFeed(**{kx: xStart, ky: yStart}))
-
-
-
-        ########################################################
-        # NOT DONE
-        ########################################################
-
-        # Get first corner arc
-        cx = x0 + sgnX*radius
-        cy = y1 - sgnY*radius
-
-
-
+        for i in range(0,len(pointList)-1):
+            x0,y0 = pointList[i]
+            linearFeed = gcode_cmd.LinearFeed(**{kx: x0, ky: y0})
+            self.listOfCmds.append(linearFeed)
+            if (i-1)%2 == 0:
+                x1,y1 = pointList[i+1] 
+                if arcDir == 'ccw':
+                    cx = 0.5*( y0 - y1 + x0 + x1)
+                    cy = 0.5*( y0 + y1 - x0 + x1)
+                else:
+                    cx = 0.5*(-y0 + y1 + x0 + x1)
+                    cy = 0.5*( y0 + y1 + x0 - x1)
+                offsetx = cx - x0 
+                offsety = cy - y0
+                helixDict = {ki: offsetx, kj: offsety, kx: x1, ky: y1, 'd': arcDir}
+                helixFeed = helixMotionClass(**helixDict)
+                self.listOfCmds.append(helixFeed)
 
 
 class RectWithCornerCutPath(gcode_cmd.GCodeProg):
@@ -649,6 +653,20 @@ def getUniDirRasterRect(point0,point1,step,cutZ,retZ,keys=('x','y','z')):
     return cmdList
 
 
+def getDirFromPts(p0,p1,p2):
+    """
+    Determines the directin of the path formed by following 
+    points p0 -> p1 -> p2.
+    """
+    x0,y0 = p0
+    x1,y1 = p1
+    x2,y2 = p2
+    ccwTest = (x1-x0)*(y2-y0) > (y1-y0)*(x2-x0)
+    if ccwTest:
+        return 'ccw'
+    else:
+        return 'cw'
+
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
 
@@ -869,9 +887,9 @@ if __name__ == '__main__':
         prog.add(filledCircPath)
 
     if 1:
-        point0 = -1.0, -1.0
-        point1 = 1.0,  1.0
-        radius = 0.2
+        point0 = 0.0, 0.0
+        point1 = 4.0,  1.0
+        radius = 0.4
         roundedRectPath = RoundedRectPath(point0,point1,radius, plane='xy')
         prog.add(roundedRectPath)
 
@@ -880,5 +898,8 @@ if __name__ == '__main__':
 
     print(prog)
     prog.write('test.ngc')
+
+
+
 
 
