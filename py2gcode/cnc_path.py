@@ -33,6 +33,8 @@ PLANE_TO_HELIX_MOTION = {
         'yz': gcode_cmd.HelicalMotionYZ,
         }
 
+MINIMUM_RADIUS = 1.e-4
+
 # Rectangular paths
 # ----------------------------------------------------------------------------------
 
@@ -46,85 +48,73 @@ class RectPath(gcode_cmd.GCodeProg):
     Note, point0 is the start and end point of the path.
     """
 
-    def __init__(self, point0, point1, plane='xy'):
+    def __init__(self, point0, point1, radius=None,plane='xy'):
         super(RectPath,self).__init__()
         checkPlane(plane)
         self.point0 = point0
         self.point1 = point1
         self.plane = plane
+        self.radius = radius
+        if self.radius is not None:
+            if self.radius < 0:
+                raise ValueError, 'radius must >= 0'
+            dx = abs(point1[0] - point0[0])
+            dy = abs(point1[1] - point0[1])
+            if self.radius > 0.5*min([dx,dy]):
+                raise ValueError, 'corner radius is too large'
+            if self.radius < MINIMUM_RADIUS:
+                self.radius = None
         self.makeListOfCmds()
 
     def makeListOfCmds(self):
         x0, y0 = self.point0
         x1, y1 = self.point1 
-        pointList = [(x0,y0), (x0,y1), (x1,y1), (x1,y0), (x0,y0)]
         kx, ky = PLANE_COORD[self.plane]
-        self.listOfCmds = [gcode_cmd.LinearFeed(**{kx: x, ky: y}) for x,y in pointList]
+        if self.radius is None:
+            pointList = [(x0,y0), (x0,y1), (x1,y1), (x1,y0), (x0,y0)]
+            self.listOfCmds = [gcode_cmd.LinearFeed(**{kx: x, ky: y}) for x,y in pointList]
+        else:
+            radius = self.radius
+            ki, kj = HELICAL_OFFSETS[self.plane]
+            helixMotionClass = PLANE_TO_HELIX_MOTION[self.plane]
 
+            # Get x and y direction signs
+            sgnX = 1 if x1 > x0 else -1
+            sgnY = 1 if y1 > y0 else -1
 
-class RoundedRectPath(gcode_cmd.GCodeProg):
-    """
-    Rectanglar w/ rounded corners  made up of linear and arc segments. The rectangle is
-    defined by points 'point0' and 'point1'. The radius parameter sets the corner radius. 
-    """
-    def __init__(self,point0,point1,radius,plane='xy'):
-        super(RoundedRectPath,self).__init__()
-        checkPlane(plane)
-        dx = abs(point1[0] - point0[0])
-        dy = abs(point1[1] - point0[1])
-        print(dx, dy)
-        if abs(radius) > 0.5*min([dx,dy]):
-            raise ValueError, 'corner radius is too large'
-        self.point0 = point0
-        self.point1 = point1
-        self.radius = abs(radius)
-        self.plane = plane
-        self.makeListOfCmds()
+            # Get list of points between segments and arcs
+            pointList =  [
+                    (x0, y0+sgnY*radius), 
+                    (x0, y1-sgnY*radius), 
+                    (x0+sgnX*radius, y1), 
+                    (x1-sgnX*radius, y1), 
+                    (x1, y1 - sgnY*radius), 
+                    (x1, y0 + sgnY*radius), 
+                    (x1 - sgnX*radius, y0), 
+                    (x0 + sgnX*radius, y0), 
+                    (x0, y0+sgnY*radius),
+                    ]
+            arcDir = getDirFromPts(pointList[0],pointList[1],pointList[2])
 
-    def makeListOfCmds(self):
-        x0, y0 = self.point0
-        x1, y1 = self.point1
-        radius = self.radius
-        kx, ky = PLANE_COORD[self.plane]
-        ki, kj = HELICAL_OFFSETS[self.plane]
-        helixMotionClass = PLANE_TO_HELIX_MOTION[self.plane]
-        self.listOfCmds = []
+            self.listOfCmds = []
+            for i in range(0,len(pointList)-1):
+                x0,y0 = pointList[i]
+                linearFeed = gcode_cmd.LinearFeed(**{kx: x0, ky: y0})
+                self.listOfCmds.append(linearFeed)
+                if (i-1)%2 == 0:
+                    x1,y1 = pointList[i+1] 
+                    if arcDir == 'ccw':
+                        cx = 0.5*( y0 - y1 + x0 + x1)
+                        cy = 0.5*( y0 + y1 - x0 + x1)
+                    else:
+                        cx = 0.5*(-y0 + y1 + x0 + x1)
+                        cy = 0.5*( y0 + y1 + x0 - x1)
+                    offsetx = cx - x0 
+                    offsety = cy - y0
+                    helixDict = {ki: offsetx, kj: offsety, kx: x1, ky: y1, 'd': arcDir}
+                    helixFeed = helixMotionClass(**helixDict)
+                    self.listOfCmds.append(helixFeed)
 
-        # Get x and y direction signs
-        sgnX = 1 if x1 > x0 else -1
-        sgnY = 1 if y1 > y0 else -1
-
-        # Get list of points between segments and arcs
-        pointList =  [
-                (x0, y0+sgnY*radius), 
-                (x0, y1-sgnY*radius), 
-                (x0+sgnX*radius, y1), 
-                (x1-sgnX*radius, y1), 
-                (x1, y1 - sgnY*radius), 
-                (x1, y0 + sgnY*radius), 
-                (x1 - sgnX*radius, y0), 
-                (x0 + sgnX*radius, y0), 
-                (x0, y0+sgnY*radius),
-                ]
-        arcDir = getDirFromPts(pointList[0],pointList[1],pointList[2])
-
-        for i in range(0,len(pointList)-1):
-            x0,y0 = pointList[i]
-            linearFeed = gcode_cmd.LinearFeed(**{kx: x0, ky: y0})
-            self.listOfCmds.append(linearFeed)
-            if (i-1)%2 == 0:
-                x1,y1 = pointList[i+1] 
-                if arcDir == 'ccw':
-                    cx = 0.5*( y0 - y1 + x0 + x1)
-                    cy = 0.5*( y0 + y1 - x0 + x1)
-                else:
-                    cx = 0.5*(-y0 + y1 + x0 + x1)
-                    cy = 0.5*( y0 + y1 + x0 - x1)
-                offsetx = cx - x0 
-                offsety = cy - y0
-                helixDict = {ki: offsetx, kj: offsety, kx: x1, ky: y1, 'd': arcDir}
-                helixFeed = helixMotionClass(**helixDict)
-                self.listOfCmds.append(helixFeed)
 
 
 class RectWithCornerCutPath(gcode_cmd.GCodeProg):
@@ -193,7 +183,7 @@ class FilledRectPath(gcode_cmd.GCodeProg):
     steps to take.
     """
 
-    def __init__(self,point0,point1,step,number,plane='xy'):
+    def __init__(self,point0,point1,step,number, radius=None, plane='xy'):
         super(FilledRectPath,self).__init__()
         checkFilledRectStep(point0,point1,step)
         checkPlane(plane)
@@ -202,6 +192,7 @@ class FilledRectPath(gcode_cmd.GCodeProg):
         self.step = abs(step)
         self.number = number
         self.plane = plane
+        self.radius = radius
         self.makeListOfCmds()
 
     def makeListOfCmds(self):
@@ -209,6 +200,8 @@ class FilledRectPath(gcode_cmd.GCodeProg):
         x1, y1 = self.point1
         xMid = 0.5*(x0 + x1)
         yMid = 0.5*(y0 + y1)
+        xLenInit = abs(x1-x0)
+        yLenInit = abs(y1-y0)
 
         if x0 < x1:
             dx0 =  self.step
@@ -235,30 +228,33 @@ class FilledRectPath(gcode_cmd.GCodeProg):
         for i in range(self.number):
             p0 = (x0,y0)
             p1 = (x1,y1)
-            rectPath = RectPath(p0,p1,plane=self.plane)
+            radius = None
+            if self.radius is not None:
+                xLen = abs(x1-x0)
+                yLen = abs(y1-y0)
+                shrinkFactor = min([xLen/xLenInit, yLen/yLenInit])
+                if shrinkFactor > 0:
+                    radius = self.radius*shrinkFactor
+            rectPath = RectPath(p0,p1,radius=radius,plane=self.plane)
             self.listOfCmds.extend(rectPath.listOfCmds)
             x0 += dx0
             x1 += dx1
             y0 += dy0
             y1 += dy1
             if xDoneTest(x0,x1) and yDoneTest(y0,y1):
-                kx, ky = PLANE_COORD[self.plane]
-                # TO DO - seems to be a bug !!!
-                #cmd = gcode_cmd.LinearFeed(**{kx: 0.5*(x0+x1), ky: 0.5*(y0+y1)})
-                #self.listOfCmds.append(cmd)
                 break
             if xDoneTest(x0,x1):
                 x0, x1 = (0.5*(x0+x1), 0.5*(x0+x1))
                 p0 = (x0,y0)
                 p1 = (x1,y1)
-                rectPath = RectPath(p0,p1,plane=self.plane)
+                rectPath = RectPath(p0,p1,radius=None,plane=self.plane)
                 self.listOfCmds.extend(rectPath.listOfCmds)
                 break
             if yDoneTest(y0,y1):
                 y0, y1 = (0.5*(y0+y1), 0.5*(y0+y1))
                 p0 = (x0,y0)
                 p1 = (x1,y1)
-                rectPath = RectPath(p0,p1,plane=self.plane)
+                rectPath = RectPath(p0,p1,radius=None,plane=self.plane)
                 self.listOfCmds.extend(rectPath.listOfCmds)
                 break
 
@@ -693,6 +689,16 @@ if __name__ == '__main__':
         prog.add(FilledRectPath(p,q,step,num))
         prog.add(gcode_cmd.Space())
 
+    if 1:
+        p = ( 2.0,  1.0)
+        q = (-2.0, -1.0)
+        step = 0.1
+        num = 11 
+        radius = 0.2
+        prog.add(gcode_cmd.Comment('FilledRectPath'))
+        prog.add(FilledRectPath(p,q,step,num,radius=radius))
+        prog.add(gcode_cmd.Space())
+
     if 0:
         p = (0,0)
         q = (4,5)
@@ -886,11 +892,11 @@ if __name__ == '__main__':
                 )
         prog.add(filledCircPath)
 
-    if 1:
+    if 0:
         point0 = 0.0, 0.0
         point1 = 4.0,  1.0
         radius = 0.4
-        roundedRectPath = RoundedRectPath(point0,point1,radius, plane='xy')
+        roundedRectPath = RectPath(point0,point1,radius=radius, plane='xy')
         prog.add(roundedRectPath)
 
     prog.add(gcode_cmd.Space())
