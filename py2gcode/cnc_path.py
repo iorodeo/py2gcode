@@ -66,6 +66,18 @@ class RectPath(gcode_cmd.GCodeProg):
                 self.radius = None
         self.makeListOfCmds()
 
+    @classmethod
+    def fromCenter(cls, centerX, centerY, width, height, direction, **kwargs):
+        if direction == 'cw':
+            point0 = (centerX - 0.5*width, centerY - 0.5*height)
+            point1 = (centerX + 0.5*width, centerY + 0.5*height)
+        elif direction == 'ccw':
+            point0 = (centerX - 0.5*width, centerY + 0.5*height)
+            point1 = (centerX + 0.5*width, centerY - 0.5*height)
+        else:
+            raise ValueError, 'unknown direction {0}'.format(direction)
+        return cls(point0, point1,**kwargs)
+
     def makeListOfCmds(self):
         x0, y0 = self.point0
         x1, y1 = self.point1 
@@ -681,6 +693,23 @@ if __name__ == '__main__':
         prog.add(RectPath(p,q,plane='xy'))
 
     if 0:
+        point0 = 0.0, 0.0
+        point1 = 4.0,  1.0
+        radius = 0.4
+        roundedRectPath = RectPath(point0,point1,radius=radius, plane='xy')
+        prog.add(roundedRectPath)
+
+    if 1:
+        cx = 0.0
+        cy = 0.0
+        width = 2.0
+        height = 1.0
+        direction = 'ccw'
+        radius = 0.25 
+        rectPath = RectPath.fromCenter(cx,cy,width,height,direction,radius=radius)
+        prog.add(rectPath)
+
+    if 0:
         p = ( 1.0,  1.0)
         q = (-1.0, -1.0)
         step = 0.1
@@ -689,7 +718,7 @@ if __name__ == '__main__':
         prog.add(FilledRectPath(p,q,step,num))
         prog.add(gcode_cmd.Space())
 
-    if 1:
+    if 0:
         p = ( 2.0,  1.0)
         q = (-2.0, -1.0)
         step = 0.1
@@ -892,12 +921,6 @@ if __name__ == '__main__':
                 )
         prog.add(filledCircPath)
 
-    if 0:
-        point0 = 0.0, 0.0
-        point1 = 4.0,  1.0
-        radius = 0.4
-        roundedRectPath = RectPath(point0,point1,radius=radius, plane='xy')
-        prog.add(roundedRectPath)
 
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.End(),comment=True)

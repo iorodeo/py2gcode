@@ -19,82 +19,17 @@ from __future__ import print_function
 import math
 import gcode_cmd
 import cnc_path
+import cnc_routine
 
 FLOAT_TOLERANCE = 1.0e-12
 
-class PocketBase(gcode_cmd.GCodeProg):
-
-    def __init__(self,param):
-        self.param = param
-        safeZ = float(self.param['safeZ'])
-        startZ = float(self.param['startZ'])
-        assert safeZ > startZ, 'safeZ must be > startZ'
-        self.listOfCmds = []
-        self.makeListOfCmds()
-
-    def makeListOfCmds(self):
-        self.listOfCmds = []
-
-    def addStartComment(self):
-        # Add pocket start comment
-        self.listOfCmds = []
-        self.listOfCmds.append(gcode_cmd.Space())
-        commentStr = 'Begin {0}'.format(self.__class__.__name__)
-        self.listOfCmds.append(gcode_cmd.Comment(commentStr))
-        self.listOfCmds.append(gcode_cmd.Comment('-'*60))
-        for k,v in self.param.iteritems():
-            self.listOfCmds.append(gcode_cmd.Comment('{0}: {1}'.format(k,v)))
-
-    def addEndComment(self):
-        self.listOfCmds.append(gcode_cmd.Space())
-        commentStr = 'End {0}'.format(self.__class__.__name__)
-        self.listOfCmds.append(gcode_cmd.Comment(commentStr))
-        self.listOfCmds.append(gcode_cmd.Comment('-'*60))
-        self.listOfCmds.append(gcode_cmd.Space())
-
-    def addComment(self,comment): 
-        self.listOfCmds.append(gcode_cmd.Space())
-        commentStr = '{0}: {1}'.format(self.__class__.__name__, comment)
-        self.listOfCmds.append(gcode_cmd.Comment(commentStr))
-
-    def addRapidMoveToSafeZ(self):
-        safeZ = float(self.param['safeZ'])
-        self.listOfCmds.append(gcode_cmd.Space())
-        commentStr = '{0}: rapid move to safe z'.format(self.__class__.__name__)
-        self.listOfCmds.append(gcode_cmd.Comment(commentStr))
-        self.listOfCmds.append(gcode_cmd.RapidMotion(z=safeZ))
-
-    def addRapidMoveToPos(self,**kwarg):
-        self.listOfCmds.append(gcode_cmd.Space())
-        try:
-            pointName = kwarg.pop('comment')
-        except KeyError:
-            pointName = '{0}'.format(kwarg)
-        commentStr = '{0}: rapid move to {1}'.format(self.__class__.__name__, pointName)
-        self.listOfCmds.append(gcode_cmd.Comment(commentStr))
-        self.listOfCmds.append(gcode_cmd.RapidMotion(**kwarg))
-
-    def addMoveToStartZ(self):
-        startZ = float(self.param['startZ'])
-        self.listOfCmds.append(gcode_cmd.Space())
-        commentStr = '{0}: move to start z'.format(self.__class__.__name__)
-        self.listOfCmds.append(gcode_cmd.Comment(commentStr))
-        self.listOfCmds.append(gcode_cmd.LinearFeed(z=startZ))
-
-    def addDwell(self,t):
-        self.listOfCmds.append(gcode_cmd.Space())
-        commentStr = '{0}: dwell'.format(self.__class__.__name__)
-        self.listOfCmds.append(gcode_cmd.Comment(commentStr))
-        self.listOfCmds.append(gcode_cmd.Dwell(t))
-
-
-class RectPocketXY(PocketBase):
+class RectPocketXY(cnc_routine.SafeZRoutine):
 
     def __init__(self,param):
         """
         Generates toolpath for cutting a simple rectangulare pocket.
 
-        params dict
+        param dict
 
         keys          values
         --------------------------------------------------------------
@@ -127,19 +62,22 @@ class RectPocketXY(PocketBase):
         startZ = float(self.param['startZ'])
         overlap = float(self.param['overlap'])
         try:
-            overlapFinish = float(self.param['overlapFinish'])
+            overlapFinish = self.param['overlapFinish']
         except KeyError:
             overlapFinish = overlap
+        overlapFinish = float(overlapFinish)
         maxCutDepth = float(self.param['maxCutDepth'])
         toolDiam = abs(float(self.param['toolDiam']))
         try:
-            startDwell = abs(float(self.param['startDwell']))
+            startDwell = self.param['startDwell']
         except KeyError:
             startDwell = 0.0
+        startDwell = abs(float(startDwell))
         try:
-            cornerMargin = float(self.param['cornerMargin'])
+            cornerMargin = self.param['cornerMargin']
         except KeyError:
             cornerMargin = 0.0
+        cornerMargin = float(cornerMargin)
 
         # Check params
         checkRectPocketOverlap(overlap)
@@ -229,7 +167,7 @@ class RectPocketXY(PocketBase):
         self.addEndComment()
 
 
-class RectAnnulusPocketXY(PocketBase):
+class RectAnnulusPocketXY(cnc_routine.SafeZRoutine):
 
     def __init__(self,param):
         """
@@ -270,19 +208,22 @@ class RectAnnulusPocketXY(PocketBase):
         startZ = float(self.param['startZ'])
         overlap = float(self.param['overlap'])
         try:
-            overlapFinish = float(self.param['overlapFinish'])
+            overlapFinish = self.param['overlapFinish']
         except KeyError:
             overlapFinish = overlap
+        overlapFinish = float(overlapFinish)
         maxCutDepth = float(self.param['maxCutDepth'])
         toolDiam = abs(float(self.param['toolDiam']))
         try:
-            startDwell = abs(float(self.param['startDwell']))
+            startDwell = self.param['startDwell']
         except KeyError:
             startDwell = 0.0
+        startDwell = abs(float(startDwell))
         try:
-            cornerMargin = float(self.param['cornerMargin'])
+            cornerMargin = self.param['cornerMargin']
         except KeyError:
             cornerMargin = 0.0
+        cornerMargin = float(cornerMargin)
         self.listOfCmds = []
 
         # Check params
@@ -408,7 +349,7 @@ class RectAnnulusPocketXY(PocketBase):
         self.addEndComment()
 
 
-class CircPocket(PocketBase):
+class CircPocket(cnc_routine.SafeZRoutine):
 
     def __init__(self,param):
         """
@@ -442,15 +383,17 @@ class CircPocket(PocketBase):
         startZ = float(self.param['startZ'])
         overlap = float(self.param['overlap'])
         try:
-            overlapFinish = float(self.param['overlapFinish'])
+            overlapFinish = self.param['overlapFinish']
         except KeyError:
             overlapFinish = overlap
+        overlapFinish = float(overlapFinish)
         maxCutDepth = float(self.param['maxCutDepth'])
         toolDiam = abs(float(self.param['toolDiam']))
         try:
-            startDwell = abs(float(self.param['startDwell']))
+            startDwell = self.param['startDwell']
         except KeyError:
             startDwell = 0.0
+        startDwell = abs(float(startDwell))
 
         # Check params
         assert (overlap >= 0.0 and overlap < 1.0), 'overlap must >=0 and < 1'
