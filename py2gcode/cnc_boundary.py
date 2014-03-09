@@ -49,6 +49,8 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
         super(RectBoundaryXY,self).__init__(param)
 
     def makeListOfCmds(self):
+
+        # Extract basic cutting parameters
         cx = float(self.param['centerX'])
         cy = float(self.param['centerY'])
         width = abs(float(self.param['width']))
@@ -57,6 +59,7 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
         startZ = float(self.param['startZ'])
         safeZ = float(self.param['safeZ'])
         maxCutDepth = abs(float(self.param['maxCutDepth']))
+        direction = self.param['direction']
         try:
             radius = self.param['radius']
         except KeyError:
@@ -68,10 +71,10 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
         except KeyError:
             startDwell = 0.0
         startDwell = abs(float(startDwell))
-        direction = self.param['direction']
+
+        # Compensate for tool offset 
         toolOffset = self.param['toolOffset']
         if toolOffset in ('inside', 'outside'):
-
             toolDiam = abs(float(self.param['toolDiam']))
             if toolOffset == 'inside':
                 width -= toolDiam
@@ -79,30 +82,38 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
             elif toolOffset == 'outside':
                 width += toolDiam
                 height += toolDiam
+        else:
+            if toolOffset is not None:
+                raise ValueError, 'uknown tool offset'.format(toolOffset)
 
         # Get z steps 
-        stopZ = startZ - depth
         zList = [startZ]
+        stopZ = startZ - depth
         while zList[-1] > stopZ:
             zList.append(max([zList[-1] - maxCutDepth, stopZ]))
 
-        print('zList: ', zList)
+        # Get pairs of z stpes for rectPath helcies
+        zPairsList = zip(zList[:-1], zList[1:])
+        zPairsList.append((zList[-1],zList[-1]))
 
-            
-        # Get basic rectangular tool path
-        rectPathBase = cnc_path.RectPath.fromCenter(cx,cy,width,height,direction,radius=radius)
+        # Get list of rectPaths
+        rectPathList = []
+        for z0, z1 in zPairsList:
+            rectPath = cnc_path.RectPath.fromCenter(
+                    cx,
+                    cy,
+                    width,
+                    height,
+                    direction,
+                    radius=radius,
+                    helix = (z0,z1)
+                    )
+            rectPathList.append(rectPath)
 
-        for i, cmd in enumerate(rectPathBase.listOfCmds):
-            if isinstance(cmd,gcode_cmd.LinearFeed):
-                print(i, cmd.motionDict)
-
-        # --------------------------------------------------------------------------------------
-        # NOT DONE
-        # --------------------------------------------------------------------------------------
-
-
-
-
+        # Get x,y coord of first point
+        firstRectPath = rectPathList[0]
+        firstPointList = firstRectPath.getPathPointList()
+        x0, y0 = firstPointList[0][:2]
 
         # Routine begin - move to safe height, then to start x,y and then to start z
         self.addStartComment()
@@ -110,6 +121,9 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
         self.addRapidMoveToPos(x=x0,y=y0,comment='start x,y')
         self.addDwell(startDwell)
         self.addMoveToStartZ()
+
+        for rectPath in rectPathList:
+            self.listOfCmds.extend(rectPath.listOfCmds)
 
         # Routine end - move to safe height and post end comment
         self.addRapidMoveToSafeZ()
@@ -134,9 +148,9 @@ if __name__ == '__main__':
                 'startZ'       : 0.0,
                 'safeZ'        : 0.15,
                 'toolDiam'     : 0.25,
-                'toolOffset'   : None,
-                'direction'    : 'cw',
-                'maxCutDepth'  : 0.02,
+                'toolOffset'   : 'outside',
+                'direction'    : 'ccw',
+                'maxCutDepth'  : 0.03,
                 
                 }
         boundary = RectBoundaryXY(param)
