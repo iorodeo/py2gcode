@@ -443,7 +443,7 @@ class UniDirRasterRectPath(gcode_cmd.GCodeProg):
 
 class CircArcPath(gcode_cmd.GCodeProg):
 
-    def __init__(self, center, radius, ang=(0.0,360.0), plane='xy',direction='cw'):
+    def __init__(self, center, radius, ang=(0.0,360.0), plane='xy',direction='cw',helix=None):
         """
         Generates a circular arc path with given center and radius. 
         
@@ -456,6 +456,8 @@ class CircArcPath(gcode_cmd.GCodeProg):
 
         direction: 'cw' for clockwise, 'ccw' for counter clockwise.
 
+        helix = (startDepth, stopDepth)
+
         """
         super(CircArcPath,self).__init__()
         checkCircPathAng(ang)
@@ -467,11 +469,16 @@ class CircArcPath(gcode_cmd.GCodeProg):
         self.ang = float(ang[0]), float(ang[1]) 
         self.plane = plane
         self.direction = direction
+        self.helix = helix
+        if self.helix is not None:
+            self.helix = float(helix[0]), float(helix[1])
+
         self.makeListOfCmds()
 
     def makeListOfCmds(self):
         kx, ky = PLANE_COORD[self.plane]
         ki, kj = HELICAL_OFFSETS[self.plane]
+        kz = PLANE_NORM_COORD[self.plane] 
         cx, cy = self.center
         r = self.radius
         angRad = tuple([math.pi*val/180.0 for val in self.ang])
@@ -489,24 +496,29 @@ class CircArcPath(gcode_cmd.GCodeProg):
         helixMotionClass = PLANE_TO_HELIX_MOTION[self.plane]
 
         self.listOfCmds = []
-        # Add linear feed to start position
-        cmdArgs = {kx:x0, ky:y0}
-        self.listOfCmds.append(gcode_cmd.LinearFeed(**cmdArgs))
 
-        # Add helical feed
-        cmdArgs = {kx:x1, ky:y1, ki:cx-x0, kj:cy-y0, 'd':self.direction}
+        # Add linear feed to start position
+        linearFeedArgs = {kx:x0, ky:y0}
+        if self.helix is not None:
+            linearFeedArgs[kz] = self.helix[0]
+        self.listOfCmds.append(gcode_cmd.LinearFeed(**linearFeedArgs))
+
+        # Add helical motion feed
+        helixFeedArgs = {kx:x1, ky:y1, ki:cx-x0, kj:cy-y0, 'd':self.direction}
+        if self.helix is not None:
+            helixFeedArgs[kz] = self.helix[1]
         if turns > 1:
-            cmdArgs['p'] = turns
-        self.listOfCmds.append(helixMotionClass(**cmdArgs))
+            helixFeedArgs['p'] = turns
+        self.listOfCmds.append(helixMotionClass(**helixFeedArgs))
 
 class CircPath(CircArcPath):
 
-    def __init__(self,center,radius,startAng=0,plane='xy',direction='cw',turns=1):
+    def __init__(self,center,radius,startAng=0,plane='xy',direction='cw',turns=1,helix=None):
         checkCircPathTurns(turns)
         self.startAng = float(startAng)
         self.turns = int(turns)
         ang = self.startAng, self.startAng + self.turns*360
-        super(CircPath,self).__init__(center,radius,ang=ang,plane=plane,direction=direction)
+        super(CircPath,self).__init__(center,radius,ang=ang,plane=plane,direction=direction,helix=None)
 
 class FilledCircPath(gcode_cmd.GCodeProg):
 
@@ -781,7 +793,7 @@ if __name__ == '__main__':
         rectPath = RectPath.fromCenter(cx,cy,width,height,direction,radius=radius)
         prog.add(rectPath)
 
-    if 1:
+    if 0:
         cx = 0.0
         cy = 0.0
         width = 2.0
@@ -972,6 +984,17 @@ if __name__ == '__main__':
         prog.add(SelectPlaneXZ())
         prog.add(CircArcPath(center,radius,ang=ang,direction=direction,plane=plane))
         prog.add(SelectPlaneXY())
+
+    if 1:
+
+        center = 0,0
+        radius = 1
+        ang = 0,360
+        direction = 'ccw'
+        plane = 'xy'
+        helix = (0.0, -0.5)
+        prog.add(gcode_cmd.Comment('CircArcPath'))
+        prog.add(CircArcPath(center,radius,ang=ang,direction=direction,plane=plane,helix=helix))
 
     if 0:
 

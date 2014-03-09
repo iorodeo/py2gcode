@@ -21,9 +21,6 @@ import gcode_cmd
 import cnc_path
 
 
-FLOAT_TOLERANCE = 1.0e-12
-
-
 class SafeZRoutine(gcode_cmd.GCodeProg):
 
     def __init__(self,param):

@@ -129,6 +129,31 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
         self.addRapidMoveToSafeZ()
         self.addEndComment()
 
+
+class CircBoundaryXY(cnc_routine.SafeZRoutine):
+
+    def __init__(self,param):
+        """
+        Generates toolpath for cutting a circular boundary.
+
+        param dict
+
+        keys          values
+        --------------------------------------------------------------
+        centerX        = center position x-coord 
+        centerY        = center position y-coord
+        radius         = circular radius
+        depth          = pocket depth  
+        startZ         = height at which to start cutting 
+        safeZ          = safe tool height 
+        direction      = cut direction 'cw' or 'ccw'
+        toolDiam       = tool diameter
+        toolOffset     = inside, outside, none
+        maxCutDepth    = maximum per pass cutting depth 
+        startDwell     = dwell duration before start (optional)
+        """
+        super(CircBoundaryXY,self).__init__(param)
+
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
 
