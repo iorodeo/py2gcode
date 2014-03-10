@@ -22,7 +22,32 @@ import cnc_path
 import cnc_routine
 
 
-class RectBoundaryXY(cnc_routine.SafeZRoutine):
+class BoundaryBase(cnc_routine.SafeZRoutine):
+    """
+    Base class for boundary cutting routines
+    """
+
+    def __init__(self,para):
+        super(BoundaryBase,self).__init__(param)
+
+    def getZList(self):
+        depth = abs(float(self.param['depth']))
+        startZ = float(self.param['startZ'])
+        maxCutDepth = abs(float(self.param['maxCutDepth']))
+        zList = [startZ]
+        stopZ = startZ - depth
+        while zList[-1] > stopZ:
+            zList.append(max([zList[-1] - maxCutDepth, stopZ]))
+        return zList
+
+    def getZPairsList(self):
+        zList = self.getZList()
+        zPairsList = zip(zList[:-1], zList[1:])
+        zPairsList.append((zList[-1],zList[-1]))
+        return zPairsList
+
+
+class RectBoundaryXY(BoundaryBase):
 
     def __init__(self,param):
         """
@@ -55,10 +80,7 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
         cy = float(self.param['centerY'])
         width = abs(float(self.param['width']))
         height = abs(float(self.param['height']))
-        depth = abs(float(self.param['depth']))
-        startZ = float(self.param['startZ'])
         safeZ = float(self.param['safeZ'])
-        maxCutDepth = abs(float(self.param['maxCutDepth']))
         direction = self.param['direction']
         try:
             radius = self.param['radius']
@@ -66,11 +88,8 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
             radius = None
         if radius is not None:
             radius = abs(float(radius))
-        try:
-            startDwell = self.param['startDwell']
-        except KeyError:
-            startDwell = 0.0
-        startDwell = abs(float(startDwell))
+
+        startDwell = self.getStartDwell()
 
         # Compensate for tool offset 
         toolOffset = self.param['toolOffset']
@@ -86,15 +105,7 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
             if toolOffset is not None:
                 raise ValueError, 'uknown tool offset'.format(toolOffset)
 
-        # Get z steps 
-        zList = [startZ]
-        stopZ = startZ - depth
-        while zList[-1] > stopZ:
-            zList.append(max([zList[-1] - maxCutDepth, stopZ]))
-
-        # Get pairs of z stpes for rectPath helcies
-        zPairsList = zip(zList[:-1], zList[1:])
-        zPairsList.append((zList[-1],zList[-1]))
+        zPairsList = self.getZPairsList()
 
         # Get list of rectPaths
         rectPathList = []
@@ -106,7 +117,8 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
                     height,
                     direction,
                     radius=radius,
-                    helix = (z0,z1)
+                    plane='xy',
+                    helix = (z0,z1),
                     )
             rectPathList.append(rectPath)
 
@@ -130,7 +142,7 @@ class RectBoundaryXY(cnc_routine.SafeZRoutine):
         self.addEndComment()
 
 
-class CircBoundaryXY(cnc_routine.SafeZRoutine):
+class CircBoundaryXY(BoundaryBase):
 
     def __init__(self,param):
         """
@@ -154,6 +166,66 @@ class CircBoundaryXY(cnc_routine.SafeZRoutine):
         """
         super(CircBoundaryXY,self).__init__(param)
 
+    def makeListOfCmds(self):
+
+        # Extract basic cutting parameters
+        cx = float(self.param['centerX'])
+        cy = float(self.param['centerY'])
+        radius = abs(float(self.param['radius']))
+        safeZ = float(self.param['safeZ'])
+        direction = self.param['direction']
+        startDwell = self.getStartDwell()
+        try:
+            startAng = self.param['startAng']
+        except KeyError:
+            startAng = 0.0
+        startAng = float(startAng)
+
+        # Compensate for tool offset 
+        toolOffset = self.param['toolOffset']
+        if toolOffset in ('inside', 'outside'):
+            toolDiam = abs(float(self.param['toolDiam']))
+            if toolOffset == 'inside':
+                radius -= 0.5*toolDiam
+            elif toolOffset == 'outside':
+                radius += 0.5*toolDiam
+        else:
+            if toolOffset is not None:
+                raise ValueError, 'uknown tool offset'.format(toolOffset)
+
+        zPairsList = self.getZPairsList()
+
+        # Get list of circPaths
+        circPathList = []
+        for z0, z1 in zPairsList:
+            circPath = cnc_path.CircPath(
+                    (cx, cy),
+                    radius,
+                    startAng=startAng,
+                    plane='xy', 
+                    direction=direction,
+                    helix = (z0,z1)
+                    )
+            circPathList.append(circPath)
+
+        # Get x,y coord of first point
+        firstCircPath = circPathList[0]
+        x0, y0 = firstCircPath.getStartPoint()[:2]
+
+        # Routine begin - move to safe height, then to start x,y and then to start z
+        self.addStartComment()
+        self.addRapidMoveToSafeZ()
+        self.addRapidMoveToPos(x=x0,y=y0,comment='start x,y')
+        self.addDwell(startDwell)
+        self.addMoveToStartZ()
+
+        for circPath in circPathList:
+            self.listOfCmds.extend(circPath.listOfCmds)
+
+        # Routine end - move to safe height and post end comment
+        self.addRapidMoveToSafeZ()
+        self.addEndComment()
+
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
 
@@ -162,7 +234,7 @@ if __name__ == '__main__':
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.FeedRate(100.0))
 
-    if 1:
+    if 0:
         param = { 
                 'centerX'      : 0.0,
                 'centerY'      : 0.0,
@@ -179,6 +251,21 @@ if __name__ == '__main__':
                 
                 }
         boundary = RectBoundaryXY(param)
+
+    if 1:
+        param = { 
+                'centerX'      : 0.0,
+                'centerY'      : 0.0,
+                'radius'       : 0.5,
+                'depth'        : 0.2,
+                'startZ'       : 0.0,
+                'safeZ'        : 0.15,
+                'toolDiam'     : 0.25,
+                'toolOffset'   : 'outside',
+                'direction'    : 'ccw',
+                'maxCutDepth'  : 0.03,
+                }
+        boundary = CircBoundaryXY(param)
 
     prog.add(boundary)
     prog.add(gcode_cmd.Space())

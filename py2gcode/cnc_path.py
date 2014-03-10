@@ -475,22 +475,48 @@ class CircArcPath(gcode_cmd.GCodeProg):
 
         self.makeListOfCmds()
 
+    def getStartPoint(self):
+        angRad = self.getAngRad()
+        cx, cy = self.center
+        r = self.radius
+        x0 = cx + r*math.cos(angRad[0])
+        y0 = cy + r*math.sin(angRad[0])
+        if self.helix is not None:
+            pt = x0, y0, self.helix[0]
+        else:
+            pt = x0, y0
+        return pt
+
+    def getStopPoint(self):
+        angRad = self.getAngRad()
+        cx, cy = self.center
+        r = self.radius
+        x1 = cx + r*math.cos(angRad[1])
+        y1 = cy + r*math.sin(angRad[1])
+        if self.helix is not None:
+            pt = x0, y0, self.helix[1]
+        else:
+            pt = x0, y0
+        return pt
+
+    def getAngRad(self):
+        angRad = tuple([math.pi*val/180.0 for val in self.ang])
+        if self.direction == 'cw':
+            angRad = [-val for val in angRad]
+        return angRad
+
+    def getNumTurns(self):
+        turns = int(math.floor((self.ang[1] - self.ang[0])/360))
+        return turns
+
     def makeListOfCmds(self):
         kx, ky = PLANE_COORD[self.plane]
         ki, kj = HELICAL_OFFSETS[self.plane]
         kz = PLANE_NORM_COORD[self.plane] 
         cx, cy = self.center
-        r = self.radius
-        angRad = tuple([math.pi*val/180.0 for val in self.ang])
-        if self.direction == 'cw':
-            angRad = [-val for val in angRad]
-
-        # Number of turns and start and end positions
-        turns = int(math.floor((self.ang[1] - self.ang[0])/360))
-        x0 = cx + r*math.cos(angRad[0])
-        y0 = cy + r*math.sin(angRad[0])
-        x1 = cx + r*math.cos(angRad[1])
-        y1 = cy + r*math.sin(angRad[1])
+        x0, y0 = self.getStartPoint()[:2]
+        x1, y1 = self.getStartPoint()[:2]
+        turns = self.getNumTurns()
 
         # Get helix motion class based on plane
         helixMotionClass = PLANE_TO_HELIX_MOTION[self.plane]
@@ -518,7 +544,7 @@ class CircPath(CircArcPath):
         self.startAng = float(startAng)
         self.turns = int(turns)
         ang = self.startAng, self.startAng + self.turns*360
-        super(CircPath,self).__init__(center,radius,ang=ang,plane=plane,direction=direction,helix=None)
+        super(CircPath,self).__init__(center,radius,ang=ang,plane=plane,direction=direction,helix=helix)
 
 class FilledCircPath(gcode_cmd.GCodeProg):
 

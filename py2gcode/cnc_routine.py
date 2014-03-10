@@ -84,3 +84,11 @@ class SafeZRoutine(gcode_cmd.GCodeProg):
         commentStr = '{0}: dwell'.format(self.__class__.__name__)
         self.listOfCmds.append(gcode_cmd.Comment(commentStr))
         self.listOfCmds.append(gcode_cmd.Dwell(t))
+
+    def getStartDwell(self):
+        try:
+            startDwell = self.param['startDwell']
+        except KeyError:
+            startDwell = 0.0
+        startDwell = abs(float(startDwell))
+        return startDwell
