@@ -27,7 +27,7 @@ class BoundaryBase(cnc_routine.SafeZRoutine):
     Base class for boundary cutting routines
     """
 
-    def __init__(self,para):
+    def __init__(self,param):
         super(BoundaryBase,self).__init__(param)
 
     def getZList(self):
