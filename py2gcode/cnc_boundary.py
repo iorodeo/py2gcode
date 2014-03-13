@@ -59,9 +59,9 @@ class RectBoundaryXY(BoundaryBase):
         --------------------------------------------------------------
         centerX        = center position x-coord 
         centerY        = center position y-coord
-        width          = pocket width  
-        height         = pocket height 
-        depth          = pocket depth  
+        width          = rectangle width  
+        height         = rectangle height 
+        depth          = cut depth  
         radius         = corner radius
         startZ         = height at which to start cutting 
         safeZ          = safe tool height 
@@ -105,9 +105,9 @@ class RectBoundaryXY(BoundaryBase):
             if toolOffset is not None:
                 raise ValueError, 'uknown tool offset'.format(toolOffset)
 
-        zPairsList = self.getZPairsList()
 
         # Get list of rectPaths
+        zPairsList = self.getZPairsList()
         rectPathList = []
         for z0, z1 in zPairsList:
             rectPath = cnc_path.RectPath.fromCenter(
@@ -155,7 +155,7 @@ class CircBoundaryXY(BoundaryBase):
         centerX        = center position x-coord 
         centerY        = center position y-coord
         radius         = circular radius
-        depth          = pocket depth  
+        depth          = cut depth  
         startZ         = height at which to start cutting 
         safeZ          = safe tool height 
         direction      = cut direction 'cw' or 'ccw'
@@ -226,6 +226,73 @@ class CircBoundaryXY(BoundaryBase):
         self.addRapidMoveToSafeZ()
         self.addEndComment()
 
+
+class LineSegBoundaryXY(BoundaryBase):
+    
+    def __init__(self,param):
+        """
+        Generates toolpath for cutting a boundary based on a closed line
+        segment path.
+
+        param dict
+
+        keys          values
+        --------------------------------------------------------------
+        pointList      = list of (x,y) points in line segement boundary  
+        depth          = cut depth  
+        startZ         = height at which to start cutting 
+        safeZ          = safe tool height 
+        toolDiam       = tool diameter
+        toolOffset     = left, right, none (NOT DONE)
+        maxCutDepth    = maximum per pass cutting depth 
+        startDwell     = dwell duration before start (optional)
+        """
+        super(LineSegBoundaryXY,self).__init__(param)
+
+    def makeListOfCmds(self):
+        pointList = self.param['pointList']
+        safeZ = float(self.param['safeZ'])
+        startDwell = self.getStartDwell()
+
+        # NOT DONE
+        #--------------------------------------------------
+        # Compensate for tool offset  - what to we do here
+        #toolOffset = self.param['toolOffset']
+        # -------------------------------------------------
+
+        # Get list of line segment paths
+        zPairsList = self.getZPairsList()
+        lineSegPathList = []
+        for z0, z1 in zPairsList:
+            lineSegPath = cnc_path.LineSegPath(
+                    pointList,
+                    closed=False,
+                    plane='xy',
+                    helix=(z0,z1)
+                    )
+            lineSegPathList.append(lineSegPath)
+
+
+        # Get x,y coord of first point
+        firstPath = lineSegPathList[0]
+        x0, y0 = firstPath.getStartPoint()[:2]
+
+        # Routine begin - move to safe height, then to start x,y and then to start z
+        self.addStartComment()
+        self.addRapidMoveToSafeZ()
+        self.addRapidMoveToPos(x=x0,y=y0,comment='start x,y')
+        self.addDwell(startDwell)
+        self.addMoveToStartZ()
+
+        for path in lineSegPathList:
+            self.listOfCmds.extend(path.listOfCmds)
+
+        # Routine end - move to safe height and post end comment
+        self.addRapidMoveToSafeZ()
+        self.addEndComment()
+
+
+
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
 
@@ -252,7 +319,7 @@ if __name__ == '__main__':
                 }
         boundary = RectBoundaryXY(param)
 
-    if 1:
+    if 0:
         param = { 
                 'centerX'      : 0.0,
                 'centerY'      : 0.0,
@@ -266,6 +333,33 @@ if __name__ == '__main__':
                 'maxCutDepth'  : 0.03,
                 }
         boundary = CircBoundaryXY(param)
+
+    if 1:
+
+        pointList = [
+                (0,0),
+                (1,0),
+                (2,1),
+                (2,1.5),
+                (1,1.5),
+                (0,1),
+                (-1,1),
+                (-1,0),
+                ]
+
+        param = {
+                'pointList'   : pointList,
+                'depth'       : 0.25,
+                'startZ'      : 0.0,
+                'safeZ'       : 0.15,
+                'toolDiam'    : 0.25,
+                'toolOffset'  : None,
+                'maxCutDepth' : 0.03,
+                'startDwell'  : 2.0,
+                }
+        boundary = LineSegBoundaryXY(param)
+
+
 
     prog.add(boundary)
     prog.add(gcode_cmd.Space())

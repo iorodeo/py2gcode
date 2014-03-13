@@ -581,6 +581,95 @@ class FilledCircPath(gcode_cmd.GCodeProg):
                     )
             self.listOfCmds.extend(circPath.listOfCmds)
 
+# Line and "Line and Arc" segment paths
+# ----------------------------------------------------------------------------
+
+class LineSegPath(gcode_cmd.GCodeProg):
+
+    def __init__(self, pointList, closed=False, plane='xy', helix=None):
+        checkPlane(plane)
+        self.pointList = pointList
+        self.pointListDim = self.getPointListDim(pointList) 
+        self.closed = closed
+        self.plane = plane
+        self.helix = helix
+        if (self.helix is not None) and self.pointListDim == 3:
+            raise ValueError, 'points must be 2d is helix is given'
+        self.makeListOfCmds()
+
+    def getPointListDim(self,pointList):
+        is2d = True
+        is3d = True
+        for p in pointList:
+            if len(p) != 2:
+                is2d = False
+            if len(p) != 3:
+                is3d = False
+        if is2d:
+            return 2
+        elif is3d:
+            return 3
+        else:
+            raise ValueError, 'dimensions of points must be all either 2 or 3'
+
+    def getStartPoint(self):
+        pointListMod = self.getModifiedPointList()
+        return pointListMod[0]
+
+    def getStopPoint(self):
+        pointListMod = self.getModifiedPointList()
+        return pointListMod[-1]
+
+    def addHelixToPointList(self,pointList):
+        z0, z1 = self.helix[0], self.helix[1]
+        pointPairs2D = zip(pointList[:-1],pointList[1:])
+    
+        # Get  travel distance for points in point list
+        distList = [0.0]
+        distList.extend([pointDist2D(*x) for x in pointPairs2D])
+    
+        # Get z depth points
+        totalDist = sum(distList)
+        zList = []
+        distCum = 0.0
+        for dist in distList:
+            distCum += dist
+            z = z0 + (z1-z0)*(distCum/totalDist)
+            zList.append(z)
+    
+        # Create list of 3D points
+        xList, yList = zip(*pointList)
+        pointListWithHelix = zip(xList,yList,zList)
+        return pointListWithHelix
+
+    def getLinearFeedFromPt(self,p): 
+        kx, ky = PLANE_COORD[self.plane]
+        if len(p) == 2: 
+            feedArgs = {kx: p[0], ky: p[1]}
+        else:
+            kz = PLANE_NORM_COORD[self.plane]
+            feedArgs = {kx: p[0], ky: p[1], kz: p[2]}
+        return gcode_cmd.LinearFeed(**feedArgs)
+
+    def getModifiedPointList(self):
+        """
+        Adds helix and closure to point list
+        """
+        pointListMod = []
+        pointListMod.extend(self.pointList)
+        if self.closed:
+            pointListMod.append(pointList[0])
+        if self.helix is not None:
+            pointListMod = self.addHelixToPointList(pointListMod)
+        return pointListMod
+
+    def makeListOfCmds(self):
+        self.listOfCmds = []
+        pointListMod = self.getModifiedPointList()
+        for p in pointListMod:
+            linearFeed = self.getLinearFeedFromPt(p)
+            self.listOfCmds.append(linearFeed)
+
 
 
 # Utility functions
@@ -784,6 +873,9 @@ def getDirFromPts(p0,p1,p2):
         return 'ccw'
     else:
         return 'cw'
+
+
+
 
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
@@ -1011,7 +1103,7 @@ if __name__ == '__main__':
         prog.add(CircArcPath(center,radius,ang=ang,direction=direction,plane=plane))
         prog.add(SelectPlaneXY())
 
-    if 1:
+    if 0:
 
         center = 0,0
         radius = 1
@@ -1055,6 +1147,24 @@ if __name__ == '__main__':
                 turns=turns
                 )
         prog.add(filledCircPath)
+
+    if 1:
+        pointList = [
+                (0,0),
+                (2,0),
+                (2,1),
+                (1,1),
+                (1,0.5),
+                (0,0.5),
+                (-1,1),
+                (-2,1),
+                (-2,0),
+                ]
+        closed = True
+        plane = 'xy'
+        helix = (0,-0.5)
+        polyPath = LineSegPath(pointList,closed=closed,plane=plane,helix=helix)
+        prog.add(polyPath)
 
 
 
