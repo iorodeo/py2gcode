@@ -243,11 +243,23 @@ class LineSegBoundaryXY(BoundaryBase):
         startZ         = height at which to start cutting 
         safeZ          = safe tool height 
         toolDiam       = tool diameter
-        toolOffset     = left, right, none (NOT DONE)
+        toolOffset     = left, right, inside, outside, none (NOT DONE)
         maxCutDepth    = maximum per pass cutting depth 
         startDwell     = dwell duration before start (optional)
         """
         super(LineSegBoundaryXY,self).__init__(param)
+
+    def getOffsetPointList(self):
+        toolDiam = abs(float(self.param['toolDiam']))
+        if toolOffset in ('inside', 'outside'):
+            pass
+        elif toolOffset in ('left', 'right'):
+            pass
+        else:
+            raise ValueError, 'unknown toolOffset {0}'.format(toolOffset)
+
+    def checkForSelfIntersect(self):
+        pass
 
     def makeListOfCmds(self):
         pointList = self.param['pointList']
@@ -255,10 +267,12 @@ class LineSegBoundaryXY(BoundaryBase):
         startDwell = self.getStartDwell()
 
         # NOT DONE
-        #--------------------------------------------------
+        #----------------------------------------------------------------------
         # Compensate for tool offset  - what to we do here
-        #toolOffset = self.param['toolOffset']
-        # -------------------------------------------------
+        toolOffset = self.param['toolOffset']
+        if toolOffset is not None:
+            pass
+        # ---------------------------------------------------------------------
 
         # Get list of line segment paths
         zPairsList = self.getZPairsList()
