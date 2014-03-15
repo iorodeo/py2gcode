@@ -48,11 +48,14 @@ class BoundaryBase(cnc_routine.SafeZRoutine):
 
 
 class RectBoundaryXY(BoundaryBase):
+    """ 
+    
+    Generates a tool path for cutting a rectangular boundary
+
+    """
 
     def __init__(self,param):
         """
-        Generates a tool path for cutting a rectangular boundary
-
         param dict
 
         keys          values
@@ -134,7 +137,8 @@ class RectBoundaryXY(BoundaryBase):
         self.addDwell(startDwell)
         self.addMoveToStartZ()
 
-        for rectPath in rectPathList:
+        for i, rectPath in enumerate(rectPathList):
+            self.addComment('RectPath {0}'.format(i))
             self.listOfCmds.extend(rectPath.listOfCmds)
 
         # Routine end - move to safe height and post end comment
@@ -143,11 +147,14 @@ class RectBoundaryXY(BoundaryBase):
 
 
 class CircBoundaryXY(BoundaryBase):
+    """
+
+    Generates toolpath for cutting a circular boundary.
+
+    """
 
     def __init__(self,param):
         """
-        Generates toolpath for cutting a circular boundary.
-
         param dict
 
         keys          values
@@ -219,7 +226,8 @@ class CircBoundaryXY(BoundaryBase):
         self.addDwell(startDwell)
         self.addMoveToStartZ()
 
-        for circPath in circPathList:
+        for i,circPath in enumerate(circPathList):
+            self.addComment('CircPath {0}'.format(i))
             self.listOfCmds.extend(circPath.listOfCmds)
 
         # Routine end - move to safe height and post end comment
@@ -228,12 +236,15 @@ class CircBoundaryXY(BoundaryBase):
 
 
 class LineSegBoundaryXY(BoundaryBase):
+    """
+
+    Generates toolpath for cutting a boundary based on a closed line segment
+    path.
+
+    """
     
     def __init__(self,param):
         """
-        Generates toolpath for cutting a boundary based on a closed line
-        segment path.
-
         param dict
 
         keys          values
@@ -298,7 +309,8 @@ class LineSegBoundaryXY(BoundaryBase):
         self.addDwell(startDwell)
         self.addMoveToStartZ()
 
-        for path in lineSegPathList:
+        for i, path in enumerate(lineSegPathList):
+            self.addComment('LineSegPath {0}'.format(i))
             self.listOfCmds.extend(path.listOfCmds)
 
         # Routine end - move to safe height and post end comment
@@ -309,6 +321,8 @@ class LineSegBoundaryXY(BoundaryBase):
 
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
+
+    # Devel Tests
 
     prog = gcode_cmd.GCodeProg()
     prog.add(gcode_cmd.GenericStart())
