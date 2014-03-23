@@ -95,21 +95,6 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
         point0 = x0,y0
         point1 = x1,y1
 
-        ## Lead-in parameters 
-        #try:
-        #    sgnX = (x1 - x0)/abs(x1 - x0)
-        #except ZeroDivisionError:
-        #    sgnX = 1.0
-        #try: 
-        #    sgnY = (y1 - y0)/abs(y1 - y0)
-        #except ZeroDivisionError:
-        #    sgnY = 1.0
-        #leadInDx = min([maxCutDepth,abs(x1-x0)])
-        #leadInDy = min([maxCutDepth,abs(y1-y0)])
-        #leadInX1 = x0 + sgnX*leadInDx
-        #leadInY1 = y0 + sgnY*leadInDy
-        #leadInPoint1 = leadInX1, leadInY1 
-
         # Move to safe height, then to start x,y and then to start z
         self.addStartComment()
         self.addRapidMoveToSafeZ()
@@ -131,16 +116,13 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
 
             # Lead-in to cut depth
             self.addComment('pass {0} lead-in'.format(passCnt))
-            leadInRect = cnc_path.RectPath(point0,point1,plane='xy', helix=(prevZ,currZ))
+            leadInRect = cnc_path.RectPath(
+                    point0,
+                    point1,
+                    plane='xy', 
+                    helix=(prevZ,currZ)
+                    )
             self.listOfCmds.extend(leadInRect.listOfCmds)
-
-            #leadInPath = cnc_path.RectPath(point0,leadInPoint1)
-            #leadInCmds = leadInPath.listOfCmds
-            #for i, cmd in enumerate(leadInCmds):
-            #    if i == 0:
-            #        continue
-            #    cmd.motionDict['z'] = prevZ + (float(i+1)/len(leadInCmds))*(currZ - prevZ)
-            #self.listOfCmds.extend(leadInCmds)
 
             # Cut filled rectangular path
             self.addComment('pass {0} filled rectangle'.format(passCnt))
@@ -154,10 +136,23 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
             numStepY = int(math.ceil(0.5*height/stepSize))
             numStep = min([numStepX, numStepY])
             if not self.param['cornerCut']:
-                rectPath = cnc_path.FilledRectPath(point0,point1,stepSize,numStep,plane='xy')
+                rectPath = cnc_path.FilledRectPath(
+                        point0,
+                        point1,
+                        stepSize,
+                        numStep,
+                        plane='xy'
+                        )
             else:
                 cutLen = 0.5*toolDiam*(math.sqrt(2.0) - 1.0) + cornerMargin
-                rectPath = cnc_path.FilledRectWithCornerCutPath(point0,point1,stepSize,numStep,cutLen,plane='xy')
+                rectPath = cnc_path.FilledRectWithCornerCutPath(
+                        point0,
+                        point1,
+                        stepSize,
+                        numStep,
+                        cutLen,
+                        plane='xy'
+                        )
             self.listOfCmds.extend(rectPath.listOfCmds)
 
             # Get next z position
@@ -256,13 +251,6 @@ class RectAnnulusPocketXY(cnc_routine.SafeZRoutine):
         innerPoint0 = innerX0, innerY0
         innerPoint1 = innerX1, innerY1
 
-
-        # Lead-in parameters 
-        sgnX = (outerX1 - outerX0)/abs(outerX1 - outerX0)
-        sgnY = (outerY1 - outerY0)/abs(outerY1 - outerY0)
-        leadInDx = min([maxCutDepth,abs(outerX1-innerX0)])
-        leadInDy = min([maxCutDepth,abs(outerY1-innerY0)])
-
         # Move to safe height, then to start x,y and then to start z
         self.addStartComment()
         self.addRapidMoveToSafeZ()
@@ -284,21 +272,13 @@ class RectAnnulusPocketXY(cnc_routine.SafeZRoutine):
 
             # Lead-in to cut depth
             self.addComment('pass {0} lead-in'.format(passCnt))
-            if abs(outerX0 - innerX0) < maxCutDepth:
-                leadInY = outerY0 + 2*sgnY*leadInDy
-                self.listOfCmds.append(gcode_cmd.LinearFeed(y=leadInY, z=prevZ + 0.5*(currZ-prevZ)))
-                self.listOfCmds.append(gcode_cmd.LinearFeed(y=outerY0, z=prevZ + 1.0*(currZ-prevZ)))
-            else:
-                leadInX1 = outerX0 + sgnX*leadInDx
-                leadInY1 = outerY0 + sgnY*leadInDy
-                leadInPoint1 = leadInX1, leadInY1 
-                leadInPath = cnc_path.RectPath(outerPoint0,leadInPoint1)
-                leadInCmds = leadInPath.listOfCmds
-                for i, cmd in enumerate(leadInCmds):
-                    if i == 0:
-                        continue
-                    cmd.motionDict['z'] = prevZ + (float(i+1)/len(leadInCmds))*(currZ - prevZ)
-                self.listOfCmds.extend(leadInCmds)
+            leadInRect = cnc_path.RectPath(
+                    outerPoint0,
+                    outerPoint1,
+                    plane='xy',
+                    helix=(prevZ,currZ)
+                    )
+            self.listOfCmds.extend(leadInRect.listOfCmds)
 
             # Cut filled rectangular path
             self.addComment('pass {0} filled rectangle'.format(passCnt))
@@ -399,8 +379,10 @@ class CircPocket(cnc_routine.SafeZRoutine):
         startDwell = abs(float(startDwell))
 
         # Check params
-        assert (overlap >= 0.0 and overlap < 1.0), 'overlap must >=0 and < 1'
-        assert 2*radius > toolDiam, 'circle diameter must be > tool diameter'
+        if overlap < 0.0 or overlap >= 1.0: 
+            raise ValueError, 'overlap must >=0 and < 1'
+        if 2*radius <= toolDiam: 
+            raise ValueError, 'circle diameter must be > tool diameter'
 
         # Get circle cutting parameters  - assumes startAngle=0
         adjustedRadius = radius - 0.5*toolDiam
@@ -430,20 +412,31 @@ class CircPocket(cnc_routine.SafeZRoutine):
             self.addComment('pass {0} lead-in'.format(passCnt))
             moveToStartCmd = gcode_cmd.LinearFeed(x=x0,y=y0)
             self.listOfCmds.append(moveToStartCmd)
-            leadInRadius = min([maxCutDepth,adjustedRadius])
-            leadInCenterX = x0  - 0.5*leadInRadius 
-            leadInCenterY = y0
-            leadInOffsetI = leadInCenterX - x0
-            leadInOffsetJ = leadInCenterY - y0
-            helicalCmd = gcode_cmd.HelicalMotionXY(
-                    x=x0,
-                    y=y0,
-                    z = currZ,
-                    i=leadInOffsetI,
-                    j=leadInOffsetJ,
-                    d = self.param['direction'],
+            leadInPath = cnc_path.CircPath(
+                    (cx,cy),
+                    adjustedRadius,
+                    startAng=0,
+                    plane='xy',
+                    direction=self.param['direction'],
+                    turns=1,
+                    helix=(prevZ,currZ)
                     )
-            self.listOfCmds.append(helicalCmd)
+            self.listOfCmds.extend(leadInPath.listOfCmds)
+
+            #leadInRadius = min([maxCutDepth,adjustedRadius])
+            #leadInCenterX = x0  - 0.5*leadInRadius 
+            #leadInCenterY = y0
+            #leadInOffsetI = leadInCenterX - x0
+            #leadInOffsetJ = leadInCenterY - y0
+            #helicalCmd = gcode_cmd.HelicalMotionXY(
+            #        x=x0,
+            #        y=y0,
+            #        z = currZ,
+            #        i=leadInOffsetI,
+            #        j=leadInOffsetJ,
+            #        d = self.param['direction'],
+            #        )
+            #self.listOfCmds.append(helicalCmd)
 
             # Add filled circle
             self.addComment('pass {0} filled circle'.format(passCnt))
@@ -496,7 +489,7 @@ if __name__ == '__main__':
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.FeedRate(100.0))
 
-    if 1:
+    if 0:
         param = {
                 'centerX'       : 0.0,
                 'centerY'       : 0.0,
@@ -523,12 +516,12 @@ if __name__ == '__main__':
                 'width'         : 1.0,
                 'height'        : 1.0,
                 'thickness'     : 0.35,
-                'depth'         : 0.1,
+                'depth'         : 0.3,
                 'startZ'        : 0.0,
                 'safeZ'         : 0.5,
                 'overlap'       : 0.3,
                 'overlapFinish' : 0.6,
-                'maxCutDepth'   : 0.04,
+                'maxCutDepth'   : 0.1,
                 'toolDiam'      : 0.2,
                 'cornerCut'     : False,
                 'direction'     : 'ccw',
@@ -538,17 +531,17 @@ if __name__ == '__main__':
         pocket = RectAnnulusPocketXY(param)
 
 
-    if 0:
+    if 1:
         param = { 
                 'centerX'        : 0.0, 
                 'centerY'        : 0.0,
                 'radius'         : 0.4,
-                'depth'          : 0.1,
+                'depth'          : 0.4,
                 'startZ'         : 0.0,
                 'safeZ'          : 0.5,
                 'overlap'        : 0.1,
                 'overlapFinish'  : 0.1,
-                'maxCutDepth'    : 0.03,
+                'maxCutDepth'    : 0.2,
                 'toolDiam'       : 0.25,
                 'direction'      : 'ccw',
                 'startDwell'   : 2.0,
