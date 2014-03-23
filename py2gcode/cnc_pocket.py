@@ -95,20 +95,20 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
         point0 = x0,y0
         point1 = x1,y1
 
-        # Lead-in parameters 
-        try:
-            sgnX = (x1 - x0)/abs(x1 - x0)
-        except ZeroDivisionError:
-            sgnX = 1.0
-        try: 
-            sgnY = (y1 - y0)/abs(y1 - y0)
-        except ZeroDivisionError:
-            sgnY = 1.0
-        leadInDx = min([maxCutDepth,abs(x1-x0)])
-        leadInDy = min([maxCutDepth,abs(y1-y0)])
-        leadInX1 = x0 + sgnX*leadInDx
-        leadInY1 = y0 + sgnY*leadInDy
-        leadInPoint1 = leadInX1, leadInY1 
+        ## Lead-in parameters 
+        #try:
+        #    sgnX = (x1 - x0)/abs(x1 - x0)
+        #except ZeroDivisionError:
+        #    sgnX = 1.0
+        #try: 
+        #    sgnY = (y1 - y0)/abs(y1 - y0)
+        #except ZeroDivisionError:
+        #    sgnY = 1.0
+        #leadInDx = min([maxCutDepth,abs(x1-x0)])
+        #leadInDy = min([maxCutDepth,abs(y1-y0)])
+        #leadInX1 = x0 + sgnX*leadInDx
+        #leadInY1 = y0 + sgnY*leadInDy
+        #leadInPoint1 = leadInX1, leadInY1 
 
         # Move to safe height, then to start x,y and then to start z
         self.addStartComment()
@@ -131,13 +131,16 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
 
             # Lead-in to cut depth
             self.addComment('pass {0} lead-in'.format(passCnt))
-            leadInPath = cnc_path.RectPath(point0,leadInPoint1)
-            leadInCmds = leadInPath.listOfCmds
-            for i, cmd in enumerate(leadInCmds):
-                if i == 0:
-                    continue
-                cmd.motionDict['z'] = prevZ + (float(i+1)/len(leadInCmds))*(currZ - prevZ)
-            self.listOfCmds.extend(leadInCmds)
+            leadInRect = cnc_path.RectPath(point0,point1,plane='xy', helix=(prevZ,currZ))
+            self.listOfCmds.extend(leadInRect.listOfCmds)
+
+            #leadInPath = cnc_path.RectPath(point0,leadInPoint1)
+            #leadInCmds = leadInPath.listOfCmds
+            #for i, cmd in enumerate(leadInCmds):
+            #    if i == 0:
+            #        continue
+            #    cmd.motionDict['z'] = prevZ + (float(i+1)/len(leadInCmds))*(currZ - prevZ)
+            #self.listOfCmds.extend(leadInCmds)
 
             # Cut filled rectangular path
             self.addComment('pass {0} filled rectangle'.format(passCnt))
@@ -493,13 +496,13 @@ if __name__ == '__main__':
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.FeedRate(100.0))
 
-    if 0:
+    if 1:
         param = {
                 'centerX'       : 0.0,
                 'centerY'       : 0.0,
                 'width'         : 2.0,
                 'height'        : 1.0,
-                'depth'         : 0.04,
+                'depth'         : 2*0.04,
                 'startZ'        : 0.0,
                 'safeZ'         : 0.5,
                 'overlap'       : 0.3,
@@ -513,7 +516,7 @@ if __name__ == '__main__':
 
         pocket = RectPocketXY(param)
 
-    if 1:
+    if 0:
         param = {
                 'centerX'       : 0.0,
                 'centerY'       : 0.0,
