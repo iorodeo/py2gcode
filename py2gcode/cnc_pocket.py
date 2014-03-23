@@ -332,7 +332,7 @@ class RectAnnulusPocketXY(cnc_routine.SafeZRoutine):
         self.addEndComment()
 
 
-class CircPocket(cnc_routine.SafeZRoutine):
+class CircPocketXY(cnc_routine.SafeZRoutine):
 
     def __init__(self,param):
         """
@@ -354,8 +354,7 @@ class CircPocket(cnc_routine.SafeZRoutine):
         startDwell     = dwell duration before start (optional)
 
         """
-        self.param = param
-        self.makeListOfCmds()
+        super(CircPocketXY,self).__init__(param)
 
     def makeListOfCmds(self):
         # Retreive numerical parameters and convert to float 
@@ -405,7 +404,6 @@ class CircPocket(cnc_routine.SafeZRoutine):
         passCnt = 0
 
         while not done:
-
             passCnt+=1
 
             # Add lead-in
@@ -422,21 +420,6 @@ class CircPocket(cnc_routine.SafeZRoutine):
                     helix=(prevZ,currZ)
                     )
             self.listOfCmds.extend(leadInPath.listOfCmds)
-
-            #leadInRadius = min([maxCutDepth,adjustedRadius])
-            #leadInCenterX = x0  - 0.5*leadInRadius 
-            #leadInCenterY = y0
-            #leadInOffsetI = leadInCenterX - x0
-            #leadInOffsetJ = leadInCenterY - y0
-            #helicalCmd = gcode_cmd.HelicalMotionXY(
-            #        x=x0,
-            #        y=y0,
-            #        z = currZ,
-            #        i=leadInOffsetI,
-            #        j=leadInOffsetJ,
-            #        d = self.param['direction'],
-            #        )
-            #self.listOfCmds.append(helicalCmd)
 
             # Add filled circle
             self.addComment('pass {0} filled circle'.format(passCnt))
@@ -473,6 +456,138 @@ class CircPocket(cnc_routine.SafeZRoutine):
         self.addRapidMoveToSafeZ()
         self.addEndComment()
 
+
+class CircAnnulusPocketXY(cnc_routine.SafeZRoutine):
+
+    def __init__(self,param):
+        """
+        param dict:
+
+        keys              values
+        --------------------------------------------------------------
+        centerX        = center x-coordinate
+        centerY        = center y-coordinate
+        radius         = radius
+        thickness      = thickness
+        depth          = pocket depth  
+        startZ         = height at which to start cutting 
+        safeZ          = safe tool height 
+        overlap        = tool path overlap (fractional value)
+        overlapFinsh   = tool path overlap for bottom layer (optional)
+        maxCutDepth    = maximum per pass cutting depth 
+        toolDiam       = diameter of tool
+        direction      = cut direction cw or ccw
+        startDwell     = dwell duration before start (optional)
+
+        """
+        super(CircAnnulusPocketXY,self).__init__(param)
+
+    def makeListOfCmds(self):
+        # Retreive numerical parameters and convert to float 
+        cx = float(self.param['centerX'])
+        cy = float(self.param['centerY'])
+        radius = abs(float(self.param['radius']))
+        thickness = abs(float(self.param['thickness']))
+        depth = abs(float(self.param['depth']))
+        startZ = float(self.param['startZ'])
+        overlap = float(self.param['overlap'])
+        try:
+            overlapFinish = self.param['overlapFinish']
+        except KeyError:
+            overlapFinish = overlap
+        overlapFinish = float(overlapFinish)
+        maxCutDepth = float(self.param['maxCutDepth'])
+        toolDiam = abs(float(self.param['toolDiam']))
+        try:
+            startDwell = self.param['startDwell']
+        except KeyError:
+            startDwell = 0.0
+        startDwell = abs(float(startDwell))
+
+        # Check params
+        if overlap < 0.0 or overlap >= 1.0: 
+            raise ValueError, 'overlap must >=0 and < 1'
+        if 2*radius <= toolDiam: 
+            raise ValueError, 'circle diameter must be > tool diameter'
+        if thickness > radius:
+            raise ValueError, 'thickness must be <= radius'
+        if toolDiam > thickness:
+            raise ValueError, 'toolDiam must be <= thickness'
+
+        # Get circle cutting parameters  - assumes startAngle=0
+        adjustedRadius = radius - 0.5*toolDiam
+        x0 = cx + adjustedRadius
+        y0 = cy
+
+        # Move to safe height, then to start x,y and then to start z
+        self.addStartComment()
+        self.addRapidMoveToSafeZ()
+        self.addRapidMoveToPos(x=x0,y=y0,comment='start x,y')
+        self.addDwell(startDwell)
+        self.addMoveToStartZ()
+
+        # Get z cutting parameters 
+        stopZ = startZ - depth
+        prevZ = startZ
+        currZ = max([startZ - maxCutDepth, stopZ])
+
+        done = False
+        passCnt = 0
+
+        while not done:
+            passCnt+=1
+
+            # Add lead-in
+            self.addComment('pass {0} lead-in'.format(passCnt))
+            moveToStartCmd = gcode_cmd.LinearFeed(x=x0,y=y0)
+            self.listOfCmds.append(moveToStartCmd)
+            leadInPath = cnc_path.CircPath(
+                    (cx,cy),
+                    adjustedRadius,
+                    startAng=0,
+                    plane='xy',
+                    direction=self.param['direction'],
+                    turns=1,
+                    helix=(prevZ,currZ)
+                    )
+            self.listOfCmds.extend(leadInPath.listOfCmds)
+
+            # Add filled circle
+            self.addComment('pass {0} filled circle'.format(passCnt))
+            if currZ == stopZ:
+                passOverlap = overlapFinish
+            else:
+                passOverlap = overlap
+
+            stepSizePrelim = toolDiam - passOverlap*toolDiam
+            numStep = int(math.floor((thickness - toolDiam)/stepSizePrelim)) + 1
+            if numStep == 1:
+                stepSize = 0.0
+            else:
+                stepSize = (thickness - toolDiam)/(numStep - 1.0)
+
+            circPath = cnc_path.FilledCircPath(
+                    (cx,cy),
+                    adjustedRadius,
+                    stepSize,
+                    numStep,
+                    startAng=0,
+                    plane='xy',
+                    direction=self.param['direction'],
+                    turns=1
+                    )
+            self.listOfCmds.extend(circPath.listOfCmds)
+
+            # Get next z position
+            if currZ <= stopZ:
+                done = True
+            prevZ = currZ
+            currZ = max([currZ - maxCutDepth, stopZ])
+
+
+        # Move to safe z and add end comment
+        self.addRapidMoveToSafeZ()
+        self.addEndComment()
 
 # Utility functions
 # --------------------------------------------------------------------------------------
@@ -530,8 +645,7 @@ if __name__ == '__main__':
 
         pocket = RectAnnulusPocketXY(param)
 
-
-    if 1:
+    if 0:
         param = { 
                 'centerX'        : 0.0, 
                 'centerY'        : 0.0,
@@ -547,7 +661,26 @@ if __name__ == '__main__':
                 'startDwell'   : 2.0,
                 }
 
-        pocket = CircPocket(param)
+        pocket = CircPocketXY(param)
+
+    if 1:
+        param = { 
+                'centerX'        : 0.0, 
+                'centerY'        : 0.0,
+                'radius'         : 1.0,
+                'thickness'      : 0.4,
+                'depth'          : 0.4,
+                'startZ'         : 0.0,
+                'safeZ'          : 0.5,
+                'overlap'        : 0.5,
+                'overlapFinish'  : 0.5,
+                'maxCutDepth'    : 0.2,
+                'toolDiam'       : 0.125,
+                'direction'      : 'ccw',
+                'startDwell'   : 2.0,
+                }
+
+        pocket = CircAnnulusPocketXY(param)
 
     prog.add(pocket)
     prog.add(gcode_cmd.Space())
