@@ -343,6 +343,7 @@ if __name__ == '__main__':
                 'toolOffset'   : 'outside',
                 'direction'    : 'ccw',
                 'maxCutDepth'  : 0.03,
+                'startDwell'   : 2.0,
                 
                 }
         boundary = RectBoundaryXY(param)
@@ -359,6 +360,7 @@ if __name__ == '__main__':
                 'toolOffset'   : 'outside',
                 'direction'    : 'ccw',
                 'maxCutDepth'  : 0.03,
+                'startDwell'   : 2.0,
                 }
         boundary = CircBoundaryXY(param)
 
