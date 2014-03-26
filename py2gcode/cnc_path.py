@@ -302,7 +302,7 @@ class FilledRectPath(gcode_cmd.GCodeProg):
                 return y0 < y1
 
         self.listOfCmds = []
-        for i in range(self.number):
+        for i in range(self.number+1):
             p0 = (x0,y0)
             p1 = (x1,y1)
             radius = None
@@ -567,7 +567,7 @@ class FilledCircPath(gcode_cmd.GCodeProg):
 
     def makeListOfCmds(self):
         self.listOfCmds = []
-        for i in range(self.number):
+        for i in range(self.number+1):
             currRadius = self.radius - i*self.step
             if currRadius <= MINIMUM_NONZERO_RADIUS:
                 break

@@ -287,12 +287,13 @@ class RectAnnulusPocketXY(cnc_routine.SafeZRoutine):
             else:
                 passOverlap = overlap
 
-            stepSizePrelim = toolDiam - passOverlap*toolDiam
-            numStep = int(math.floor((thickness - toolDiam)/stepSizePrelim)) + 1
-            if numStep == 1:
+            if abs(toolDiam - thickness) <= FLOAT_TOLERANCE:
+                numStep = 0
                 stepSize = 0.0
             else:
-                stepSize = (thickness - toolDiam)/(numStep - 1.0)
+                stepSizePrelim = toolDiam - passOverlap*toolDiam
+                numStep = int(math.floor((thickness - toolDiam)/stepSizePrelim)) + 1
+                stepSize = (thickness -toolDiam)/float(numStep)
 
             if not self.param['cornerCut']:
                 rectPath = cnc_path.FilledRectPath(
@@ -559,13 +560,14 @@ class CircAnnulusPocketXY(cnc_routine.SafeZRoutine):
             else:
                 passOverlap = overlap
 
-            stepSizePrelim = toolDiam - passOverlap*toolDiam
-            numStep = int(math.floor((thickness - toolDiam)/stepSizePrelim)) + 1
-            if numStep == 1:
+            if abs(toolDiam - thickness) <= FLOAT_TOLERANCE:
+                numStep = 0
                 stepSize = 0.0
             else:
-                stepSize = (thickness - toolDiam)/(numStep - 1.0)
-
+                stepSizePrelim = toolDiam - passOverlap*toolDiam
+                numStep = int(math.floor((thickness - toolDiam)/stepSizePrelim)) + 1
+                stepSize = (thickness -toolDiam)/float(numStep)
+              
             circPath = cnc_path.FilledCircPath(
                     (cx,cy),
                     adjustedRadius,
