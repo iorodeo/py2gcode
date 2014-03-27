@@ -550,7 +550,10 @@ class FilledCircPath(gcode_cmd.GCodeProg):
 
     def __init__(self,center,radius,step,number,startAng=0,plane='xy',direction='cw',turns=1):
         super(FilledCircPath,self).__init__()
-        checkFilledCircStep(radius,step)
+        # ----------------------------------------------------------
+        # DEBUG -- don't need this - seems to be causing issues
+        #checkFilledCircStep(radius,step)  
+        # ----------------------------------------------------------
         checkPlane(plane)
         checkHelicalDirection(direction)
         checkCircPathTurns(turns)
