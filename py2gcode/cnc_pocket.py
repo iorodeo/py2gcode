@@ -132,6 +132,7 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
                 passOverlap = overlap
 
             stepSize = toolDiam - passOverlap*toolDiam
+            stepSize = min([stepSize, abs(x1-x0), abs(y1-y0)])
             numStepX = int(math.ceil(0.5*width/stepSize))
             numStepY = int(math.ceil(0.5*height/stepSize))
             numStep = min([numStepX, numStepY])
