@@ -510,6 +510,54 @@ class CancelCutterCompensation(GCodeCmd):
         self.commentStr = 'Cancel cutter radius compensation'
 
 
+class CutterCompensation(GCodeCmd):
+
+    def __init__(self,side,diameter=None,toolNumber=None):
+        super(CutterCompensation,self).__init__()
+        self.side = side.lower()
+        if self.side == 'left':
+            self.code = 'G41'
+        elif self.side == 'right':
+            self.code = 'G42'
+        else:
+            raise ValueError, "side must be either 'left' or 'right'"
+        self.diameter = diameter
+        self.toolNumber = toolNumber
+        if (self.diameter is not None) and (self.toolNumber is not None):
+            raise ValueError, "diameter and toolNumber cannot both be defined"
+        if self.diameter is not None:
+            self.code = '{0}.1'.format(self.code)
+            self.commentStr = 'Added dynamic cutter radius compensation, {0}'.format(self.side)
+        else:
+            self.commentStr = 'Added cutter radius compensation, {0}'.format(self.side)
+
+    def getCmdList(self):
+        cmdList = super(CutterCompensation,self).getCmdList()
+        if self.toolNumber is not None:
+            cmdList.append('{0}'.format(self.toolNumber))
+        elif self.diameter is not None:
+            cmdList.append('{0}'.format(self.diameter))
+        return cmdList
+
+
+class CutterCompensationLeft(CutterCompensation):
+
+    def __init__(self,diameter=None,toolNumber=None):
+        super(CutterCompensationLeft,self).__init__(
+            'left',
+            diameter=diameter,
+            toolNumber=toolNumber
+            )
+
+class CutterCompensationRight(CutterCompensation):
+
+    def __init__(self,diameter=None,toolNumber=None):
+        super(CutterCompensationRight,self).__init__(
+            'right',
+            diameter=diameter,
+            toolNumber=toolNumber
+            )
+
 # Units
 # -----------------------------------------------------------------------------
 
@@ -925,7 +973,23 @@ if __name__ == '__main__':
     cmd = QuadraticBSplineXY(1.0,1.0,1.1,1.5)
     print(cmd)
 
+    cmd = CutterCompensation('left', toolNumber=1)
+    print(cmd)
 
+    cmd = CutterCompensation('right', toolNumber=2)
+    print(cmd)
+
+    cmd = CutterCompensation('left', diameter=0.5)
+    print(cmd)
+
+    cmd = CutterCompensation('right', diameter=0.25)
+    print(cmd)
+
+    cmd = CutterCompensationLeft(diameter=0.5)
+    print(cmd)
+
+    cmd = CutterCompensationRight(diameter=0.25)
+    print(cmd)
 
 
 
