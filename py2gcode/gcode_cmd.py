@@ -534,9 +534,9 @@ class CutterCompensation(GCodeCmd):
     def getCmdList(self):
         cmdList = super(CutterCompensation,self).getCmdList()
         if self.toolNumber is not None:
-            cmdList.append('{0}'.format(self.toolNumber))
+            cmdList.append('D{0}'.format(self.toolNumber))
         elif self.diameter is not None:
-            cmdList.append('{0}'.format(self.diameter))
+            cmdList.append('D{0}'.format(self.diameter))
         return cmdList
 
 

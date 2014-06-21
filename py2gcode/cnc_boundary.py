@@ -238,8 +238,7 @@ class CircBoundaryXY(BoundaryBase):
 class LineSegBoundaryXY(BoundaryBase):
     """
 
-    Generates toolpath for cutting a boundary based on a closed line segment
-    path.
+    Generates toolpath for cutting a boundary based on a segment path.
 
     """
     
@@ -254,36 +253,38 @@ class LineSegBoundaryXY(BoundaryBase):
         startZ         = height at which to start cutting 
         safeZ          = safe tool height 
         toolDiam       = tool diameter
-        toolOffset     = left, right, inside, outside, none (NOT DONE)
+        cutterComp     = left, right, inside, outside, none (NOT DONE)
         maxCutDepth    = maximum per pass cutting depth 
         startDwell     = dwell duration before start (optional)
+        closed         = whether or not path is open or closed.
         """
         super(LineSegBoundaryXY,self).__init__(param)
 
-    def getOffsetPointList(self):
-        toolDiam = abs(float(self.param['toolDiam']))
-        if toolOffset in ('inside', 'outside'):
-            pass
-        elif toolOffset in ('left', 'right'):
-            pass
-        else:
-            raise ValueError, 'unknown toolOffset {0}'.format(toolOffset)
-
     def checkForSelfIntersect(self):
         pass
+
+    def getCutterCompLeadIn(self,p0,p1):
+        toolDiam = abs(float(self.param['toolDiam']))
+        x0, y0 = p0
+        x1, y1 = p1
+        moveLen = math.sqrt((x1-x0)**2 + (y1-y0)**2)
+        xNorm = (x1-x0)/moveLen 
+        yNorm = (y1-y0)/moveLen 
+        xLead = x0 - xNorm*toolDiam
+        yLead = y0 - yNorm*toolDiam
+        return xLead, yLead
 
     def makeListOfCmds(self):
         pointList = self.param['pointList']
         safeZ = float(self.param['safeZ'])
         startDwell = self.getStartDwell()
+        toolDiam = abs(float(self.param['toolDiam']))
 
-        # NOT DONE
-        #----------------------------------------------------------------------
-        # Compensate for tool offset  - what to we do here
-        toolOffset = self.param['toolOffset']
-        if toolOffset is not None:
-            pass
-        # ---------------------------------------------------------------------
+        if self.param['closed']:
+            pointList.append(pointList[0])
+        else:
+            pointListRev = pointList[::-1]
+            pointList.extend(pointListRev)
 
         # Get list of line segment paths
         zPairsList = self.getZPairsList()
@@ -297,7 +298,17 @@ class LineSegBoundaryXY(BoundaryBase):
                     )
             lineSegPathList.append(lineSegPath)
 
-
+        cutterComp = self.param['cutterComp']
+        if cutterComp is not None:
+            if cutterComp not in ('inside', 'outside', 'left', 'right'):
+                raise ValueError, 'unknown cutter compensation value {0}'.format(cutterComp)
+            if cutterComp in ('inside', 'outside'):
+                # TO DO
+                # ---------------------------------------------------------------------------
+                # Convert cutter comp to 'left' or 'right' based on line seg path
+                # ---------------------------------------------------------------------------
+                raise ValueError, 'inside/outside cutter compensation not implemented yet'
+            
         # Get x,y coord of first point
         firstPath = lineSegPathList[0]
         x0, y0 = firstPath.getStartPoint()[:2]
@@ -306,17 +317,38 @@ class LineSegBoundaryXY(BoundaryBase):
         self.addStartComment()
         self.addRapidMoveToSafeZ()
         self.addRapidMoveToPos(x=x0,y=y0,comment='start x,y')
+        
+        if cutterComp is not None:
+            # Move back to leadin start 
+            xLead, yLead = self.getCutterCompLeadIn(pointList[0],pointList[1])
+            self.addRapidMoveToPos(x=xLead,y=yLead, comment='cutterComp start move')
+
+            # Add cutter compensation
+            compCmd = gcode_cmd.CutterCompensation(cutterComp,diameter=toolDiam)
+            self.listOfCmds.append(compCmd)
+
+            # Return to start 
+            self.addRapidMoveToPos(x=x0,y=y0, comment='cutterComp start move')
+
         self.addDwell(startDwell)
         self.addMoveToStartZ()
 
+        # Add cutting paths
         for i, path in enumerate(lineSegPathList):
             self.addComment('LineSegPath {0}'.format(i))
             self.listOfCmds.extend(path.listOfCmds)
 
         # Routine end - move to safe height and post end comment
         self.addRapidMoveToSafeZ()
-        self.addEndComment()
 
+        # Cancel cutter compensation
+        xLead, yLead = self.getCutterCompLeadIn(pointList[-1], pointList[-2])
+        self.addRapidMoveToPos(x=xLead,y=yLead,comment='cancel cutter comp move')
+        self.listOfCmds.append(gcode_cmd.CancelCutterCompensation())
+        xEnd, yEnd = pointList[-1]
+        self.addRapidMoveToPos(x=xEnd,y=yEnd,comment='cancel cutter comp move') 
+
+        self.addEndComment()
 
 
 # -----------------------------------------------------------------------------
@@ -379,16 +411,41 @@ if __name__ == '__main__':
 
         param = {
                 'pointList'   : pointList,
-                'depth'       : 0.25,
+                'depth'       : 0.03,
                 'startZ'      : 0.0,
                 'safeZ'       : 0.15,
                 'toolDiam'    : 0.25,
-                'toolOffset'  : None,
+                'cutterComp'  : 'right',
                 'maxCutDepth' : 0.03,
                 'startDwell'  : 2.0,
+                'closed'      : True,
                 }
         boundary = LineSegBoundaryXY(param)
 
+    if 0:
+        pointList = [
+                (0,0),
+                (1,0),
+                (2,1),
+                (2,1.5),
+                (1,1.5),
+                (0,1),
+                (-1,1),
+                (-1,0),
+                ]
+
+        param = {
+                'pointList'   : pointList,
+                'depth'       : 0.03,
+                'startZ'      : 0.0,
+                'safeZ'       : 0.15,
+                'toolDiam'    : 0.25,
+                'cutterComp'  : 'right',
+                'maxCutDepth' : 0.03,
+                'startDwell'  : 2.0,
+                'closed'      : False,
+                }
+        boundary = LineSegBoundaryXY(param)
 
 
     prog.add(boundary)
