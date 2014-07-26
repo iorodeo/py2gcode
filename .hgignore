@@ -4,10 +4,6 @@ syntax: glob
 *~
 *.o
 *.swp
-*.scad
-*.stl
-*.pkl
-*.dxf
 *.egg-info
 build
 dist
