@@ -22,7 +22,8 @@ import cnc_drill
 import cnc_pocket
 import dxfgrabber
 import networkx
-
+import numpy
+import matplotlib.pyplot as plt
 
 class DxfBase(gcode_cmd.GCodeProg):
 
@@ -109,8 +110,9 @@ class DxfBoundary(DxfBase):
     DEFAULT_PARAM = {
             'dxfTypes'    :  ['LINE','ARC'],
             'convertArcs' :  True,
-            'ptEquivTol'  :  1.0e-5,
-            'arcLen'      :  1.0e3,
+            'ptEquivTol'  :  1.0e-6,
+            #'maxArcLen'   :  1.0e-2,
+            'maxArcLen'   :  1.0e-1,
             }
 
     def __init__(self,param):
@@ -119,15 +121,54 @@ class DxfBoundary(DxfBase):
     def makeListOfCmds(self):
         self.listOfCmds = []
         if self.param['convertArcs']:
-            lineSegList = []
-            for entity in self.entityList:
-                if entity.dxftype  == 'LINE':
-                    seg = entity.start[:2], entity.end[:2]
-                    lineSegList.append(seg)
-                else:
-                    print('dxftype == ARC')
+            lineList = self.getLineList()
+            for line in lineList:
+                p0, p1 = line
+                x0, y0 = p0
+                x1, y1 = p1
+                plt.plot([x0,x1],[y0,y1],'b')
+            plt.show()
         else:
             raise ValueError, 'case convertArc = False not implemented yet'
+
+    def getLineList(self):
+        lineList = []
+        for entity in self.entityList:
+            if entity.dxftype  == 'LINE':
+                line = entity.start[:2], entity.end[:2]
+                lineList.append(line)
+            else:
+                arcLineList = self.convertArcToLineList(entity)
+                lineList.extend(arcLineList)
+        return lineList
+
+    def convertArcToLineList(self,arc):
+        xc = arc.center[0]
+        yc = arc.center[1]
+        r = arc.radius
+        angStart = (math.pi/180.0)*arc.startangle
+        angEnd = (math.pi/180.0)*arc.endangle
+        # Get array of steps from start to end angle
+        if angEnd < angStart:
+            angEnd += 2.0*math.pi 
+        totalAng = abs(angEnd - angStart)
+        maxStepAng = self.param['maxArcLen']/arc.radius
+        numPts = int(math.ceil(totalAng/maxStepAng))
+        angStepArray = numpy.linspace(angStart, angEnd, numPts)
+        # Create line segments
+        lineList = []
+        for ang0, ang1 in zip(angStepArray[:-1], angStepArray[1:]):
+            x0 = xc + r*math.cos(ang0)
+            y0 = yc + r*math.sin(ang0)
+            x1 = xc + r*math.cos(ang1)
+            y1 = yc + r*math.sin(ang1)
+            lineSeg = ((x0,y0), (x1,y1))
+            lineList.append(lineSeg)
+        return lineList
+
+
+
+
 
 
 
@@ -144,7 +185,7 @@ if __name__ == '__main__':
 
     dxfDir = os.path.join(os.curdir,'test_dxf')
 
-    if 1:
+    if 0:
         fileName = os.path.join(dxfDir,'drill_test.dxf')
         param = { 
                 'fileName'    : fileName,
@@ -208,9 +249,10 @@ if __name__ == '__main__':
         pocket = DxfCircPocket(param)
         prog.add(pocket)
 
-    if 0:
+    if 1:
         #fileName = os.path.join(dxfDir,'boundary_test0.dxf')
         fileName = os.path.join(dxfDir,'boundary_test1.dxf')
+        #fileName = os.path.join(dxfDir,'boundary_test2.dxf')
         param = {
                 'fileName'       : fileName,
                 'depth'       : 0.03,
