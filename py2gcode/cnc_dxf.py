@@ -21,65 +21,57 @@ import gcode_cmd
 import cnc_drill
 import cnc_pocket
 import dxfgrabber
+import networkx
 
 
 class DxfBase(gcode_cmd.GCodeProg):
 
-    defaultTypeList = []
-    allowedTypeList = None
+    ALLOWED_TYPE_LIST = None
+    DEFAULT_PARAM = {'dxfTypes': []}
 
     def __init__(self,param):
-        self.param = param
-        self.dwg = dxfgrabber.readfile(self.param['fileName'])
+        self.param = dict(self.DEFAULT_PARAM)
+        self.param.update(param)
+        try:
+            self.dwg = self.param['dwg']
+        except KeyError:
+            self.dwg = dxfgrabber.readfile(self.param['fileName'])
         self.makeListOfCmds()
 
     @property
     def layerNameList(self):
         try:
-            layerNameList = param['layers']
+            layerNameList = self.param['layers']
         except KeyError:
-            layerNameList = None
-        if layerNameList is None:
             layerNameList = [layer.name for layer in self.dwg.layers]
         return layerNameList
 
     @property
-    def typeList(self):
-        try:
-            typeList = param['dxfTypes']
-        except KeyError:
-            typeList = None
-        if typeList is None:
-            typeList = self.defaultTypeList 
-        return typeList
-
-    @property
     def entityList(self):
         entityList = [x for x in self.dwg.entities if x.layer in self.layerNameList]
-        entityList = [x for x in entityList if x.dxftype in self.typeList] 
-        if self.allowedTypeList is not None:
-            entityList = [x for x in entityList if x.dxftype in self.allowedTypeList]
+        entityList = [x for x in entityList if x.dxftype in self.param['dxfTypes']] 
+        entityList = [x for x in entityList if x.dxftype in self.ALLOWED_TYPE_LIST]
         return entityList
 
 
 class DxfDrill(DxfBase):
 
-    defaultTypeList = ['CIRCLE']
-    allowedTypeList = ['POINT', 'CIRCLE', 'ARC']
+    ALLOWED_TYPE_LIST = ['POINT', 'CIRCLE', 'ARC']
+    DEFAULT_PARAM = {'dxfTypes': ['CIRCLE']}
 
     def __init__(self,param):
         super(DxfDrill,self).__init__(param)
 
+    @property
+    def drillClass(self):
+        if 'stepZ' in self.param:
+            drill = cnc_drill.PeckDrill
+        else:
+            drill = cnc_drill.SimpleDrill
+        return drill 
+
     def makeListOfCmds(self):
         self.listOfCmds = []
-
-        # Get drill class  based on presence of stepZ
-        if 'stepZ' in self.param:
-            Drill = cnc_drill.PeckDrill
-        else:
-            Drill = cnc_drill.SimpleDrill
-
-        # Create drill commands
         for entity in self.entityList:
             drillParam = dict(self.param)
             if entity.dxftype == 'POINT':
@@ -88,21 +80,20 @@ class DxfDrill(DxfBase):
                 centerPt = entity.center 
             drillParam['centerX'] = centerPt[0]
             drillParam['centerY'] = centerPt[1]
-            self.listOfCmds.extend(Drill(drillParam).listOfCmds)
+            drill = self.drillClass(drillParam)
+            self.listOfCmds.extend(drill.listOfCmds)
 
 
 class DxfCircPocket(DxfBase):
 
-    defaultTypeList = ['CIRCLE']
-    allowedTypeList = ['CIRCLE']
+    ALLOWED_TYPE_LIST = ['CIRCLE']
+    DEFAULT_PARAM = {'dxfTypes': ['CIRCLE']}
 
     def __init__(self,param):
         super(DxfCircPocket,self).__init__(param)
 
     def makeListOfCmds(self):
-        print('hello')
         self.listOfCmds = []
-        print(self.entityList)
         for entity in self.entityList:
             pocketParam = dict(self.param)
             pocketParam['centerX'] = entity.center[0]
@@ -110,6 +101,35 @@ class DxfCircPocket(DxfBase):
             pocketParam['radius'] = entity.radius
             pocket = cnc_pocket.CircPocketXY(pocketParam)
             self.listOfCmds.extend(pocket.listOfCmds)
+
+
+class DxfBoundary(DxfBase):
+
+    ALLOWED_TYPE_LIST = ['LINE','ARC']
+    DEFAULT_PARAM = {
+            'dxfTypes'    :  ['LINE','ARC'],
+            'convertArcs' :  True,
+            'ptEquivTol'  :  1.0e-5,
+            'arcLen'      :  1.0e3,
+            }
+
+    def __init__(self,param):
+        super(DxfBoundary,self).__init__(param)
+
+    def makeListOfCmds(self):
+        self.listOfCmds = []
+        if self.param['convertArcs']:
+            lineSegList = []
+            for entity in self.entityList:
+                if entity.dxftype  == 'LINE':
+                    seg = entity.start[:2], entity.end[:2]
+                    lineSegList.append(seg)
+                else:
+                    print('dxftype == ARC')
+        else:
+            raise ValueError, 'case convertArc = False not implemented yet'
+
+
 
 
 # -----------------------------------------------------------------------------
@@ -124,7 +144,7 @@ if __name__ == '__main__':
 
     dxfDir = os.path.join(os.curdir,'test_dxf')
 
-    if 0:
+    if 1:
         fileName = os.path.join(dxfDir,'drill_test.dxf')
         param = { 
                 'fileName'    : fileName,
@@ -170,7 +190,7 @@ if __name__ == '__main__':
         pocket = DxfCircPocket(param)
         prog.add(pocket)
 
-    if 1:
+    if 0:
         fileName = os.path.join(dxfDir,'circ_pocket_test.dxf')
         param = {
                 'fileName'       : fileName,
@@ -187,6 +207,23 @@ if __name__ == '__main__':
                 }
         pocket = DxfCircPocket(param)
         prog.add(pocket)
+
+    if 0:
+        #fileName = os.path.join(dxfDir,'boundary_test0.dxf')
+        fileName = os.path.join(dxfDir,'boundary_test1.dxf')
+        param = {
+                'fileName'       : fileName,
+                'depth'       : 0.03,
+                'startZ'      : 0.0,
+                'safeZ'       : 0.15,
+                'toolDiam'    : 0.25,
+                'direction'   : 'ccw',
+                'cutterComp'  : 'right',
+                'maxCutDepth' : 0.03,
+                'startDwell'  : 2.0,
+                }
+        boundary = DxfBoundary(param)
+        prog.add(boundary)
 
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.End(),comment=True)
