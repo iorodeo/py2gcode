@@ -111,8 +111,8 @@ class DxfBoundary(DxfBase):
             'dxfTypes'    :  ['LINE','ARC'],
             'convertArcs' :  True,
             'ptEquivTol'  :  1.0e-6,
-            #'maxArcLen'   :  1.0e-2,
             'maxArcLen'   :  1.0e-1,
+            #'maxArcLen'   :  1.0e-2,
             }
 
     def __init__(self,param):
@@ -120,18 +120,56 @@ class DxfBoundary(DxfBase):
 
     def makeListOfCmds(self):
         self.listOfCmds = []
-        if self.param['convertArcs']:
-            lineList = self.getLineList()
-            for line in lineList:
-                p0, p1 = line
-                x0, y0 = p0
-                x1, y1 = p1
-                plt.plot([x0,x1],[y0,y1],'b')
-            plt.show()
-        else:
-            raise ValueError, 'case convertArc = False not implemented yet'
 
-    def getLineList(self):
+        # Get entity graph and find connected components
+        graph, ptToNodeDict = getEntityGraph(self.entityList,self.param['ptEquivTol'])
+        connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
+
+        for i, subGraph in enumerate(connectedCompSubGraphs):
+            print('subGraph',i)
+            nodeDegreeList = [subGraph.degree(n) for n in subGraph]
+            maxNodeDegree = max(nodeDegreeList)
+            minNodeDegree = min(nodeDegreeList)
+            if maxNodeDegree > 2:
+                # Funky graph -  treat each entity as  separate boundry
+                print(' funky graph')
+                if self.param['cutterComp'] is not None:
+                    errorMsg = 'cutterComp must be None for entity graphs with degree > 2'
+                    raise ValueError, errorMsg
+            elif maxNodeDegree == 2 and minNodeDegree == 2:
+                # Graph is a closed loop  
+                print(' closed loop')
+                pass
+            elif minNodeDegree == 1:
+                # Boundary is open chain of lines and arcs
+                print(' open chain')
+                if self.param['cutterComp'] is not None:
+                    errorMsg = 'cutterComp must be None for open entity graphs'
+                    raise ValueError, errorMsg
+            else:
+                continue
+
+            #print('subGraph:', i)
+            #for j, edge in enumerate(subGraph.edges()):
+            #    n,m = edge
+            #    entity = subGraph[n][m]['entity']
+            #    print('  edge:', j, edge, entity)
+
+
+        #if self.param['convertArcs']:
+        #    lineList = self.getEntityLineList()
+        #    #for line in lineList:
+        #    #    p0, p1 = line
+        #    #    x0, y0 = p0
+        #    #    x1, y1 = p1
+        #    #    plt.plot([x0,x1],[y0,y1],'b')
+        #    #plt.show()
+
+        #else:
+        #    raise ValueError, 'case convertArc = False not implemented yet'
+
+    
+    def getEntityLineList(self):
         lineList = []
         for entity in self.entityList:
             if entity.dxftype  == 'LINE':
@@ -168,9 +206,68 @@ class DxfBoundary(DxfBase):
 
 
 
+# Utility functions
+# -----------------------------------------------------------------------------
+def getEntityGraph(entityList, ptEquivTol=1.0e-6):
+    ptToNodeDict = getPtToNodeDict(entityList,ptEquivTol)
+    graph = networkx.Graph()
+    for entity in entityList:
+        startPt, endPt = getEntityStartAndEndPts(entity)
+        startNode = ptToNodeDict[startPt]
+        graph.add_node(startNode)
+        endNode = ptToNodeDict[endPt]
+        graph.add_node(endNode)
+        graph.add_edge(startNode, endNode, entity=entity)
+    return graph, ptToNodeDict
+
+def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):
+    ptList = []
+    for entity in entityList:
+        startPt, endPt = getEntityStartAndEndPts(entity)
+        ptList.extend([startPt, endPt])
+    ptToNodeDict = {}
+    nodeCnt = 0
+    for i, p in enumerate(ptList):
+        found = False
+        for q in ptList[:i]:
+            if dist(p,q) < ptEquivTol:
+                found = True
+                ptToNodeDict[p] = ptToNodeDict[q] 
+                break
+        if not found:
+            ptToNodeDict[p] = nodeCnt
+            nodeCnt += 1
+    return ptToNodeDict
+
+def getDxfArcStartAndEndPts(arc): 
+    xc = arc.center[0]
+    yc = arc.center[1]
+    r = arc.radius
+    angStart = (math.pi/180.0)*arc.startangle
+    angEnd = (math.pi/180.0)*arc.endangle
+    if angEnd < angStart:
+        angEnd += 2.0*math.pi 
+    x0 = xc + r*math.cos(angStart)
+    y0 = yc + r*math.sin(angStart)
+    x1 = xc + r*math.cos(angEnd)
+    y1 = yc + r*math.sin(angEnd)
+    startPt = x0,y0
+    endPt = x1,y1
+    return startPt,endPt
 
 
+def getEntityStartAndEndPts(entity):
+    if entity.dxftype == 'LINE':
+        startPt, endPt = entity.start[:2], entity.end[:2]
+    elif entity.dxftype == 'ARC':
+        startPt, endPt = getDxfArcStartAndEndPts(entity)
+    else:
+        raise ValueError, 'entity type not yet supported'
+    return startPt, endPt
 
+
+def dist(p,q):
+    return math.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
 
 
 # -----------------------------------------------------------------------------
@@ -251,8 +348,9 @@ if __name__ == '__main__':
 
     if 1:
         #fileName = os.path.join(dxfDir,'boundary_test0.dxf')
-        fileName = os.path.join(dxfDir,'boundary_test1.dxf')
+        #fileName = os.path.join(dxfDir,'boundary_test1.dxf')
         #fileName = os.path.join(dxfDir,'boundary_test2.dxf')
+        fileName = os.path.join(dxfDir,'boundary_test3.dxf')
         param = {
                 'fileName'       : fileName,
                 'depth'       : 0.03,
@@ -260,7 +358,7 @@ if __name__ == '__main__':
                 'safeZ'       : 0.15,
                 'toolDiam'    : 0.25,
                 'direction'   : 'ccw',
-                'cutterComp'  : 'right',
+                'cutterComp'  : None,
                 'maxCutDepth' : 0.03,
                 'startDwell'  : 2.0,
                 }
