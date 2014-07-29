@@ -342,12 +342,11 @@ class LineSegBoundaryXY(BoundaryBase):
         self.addRapidMoveToSafeZ()
 
         # Cancel cutter compensation
+        self.listOfCmds.append(gcode_cmd.CancelCutterCompensation())
         xLead, yLead = self.getCutterCompLeadIn(pointList[-1], pointList[-2])
         self.addRapidMoveToPos(x=xLead,y=yLead,comment='cancel cutter comp move')
-        self.listOfCmds.append(gcode_cmd.CancelCutterCompensation())
         xEnd, yEnd = pointList[-1]
         self.addRapidMoveToPos(x=xEnd,y=yEnd,comment='cancel cutter comp move') 
-
         self.addEndComment()
 
 

@@ -113,7 +113,7 @@ class DxfBoundary(DxfBase):
             'dxfTypes'    :  ['LINE','ARC'],
             'convertArcs' :  True,
             'ptEquivTol'  :  1.0e-6,
-            'maxArcLen'   :  0.5e-1,
+            'maxArcLen'   :  1.0e-1,
             #'maxArcLen'   :  1.0e-2,
             'startCond'   : 'minX',
             }
@@ -155,8 +155,6 @@ class DxfBoundary(DxfBase):
             
 
     def makeCmdsForLineString(self,graph):
-        listOfCmds = []
-
         if self.param['cutterComp'] is not None:
             errorMsg = 'cutterComp must be None for line string graphs'
             raise ValueError, errorMsg
@@ -181,38 +179,14 @@ class DxfBoundary(DxfBase):
         simplePathGen = networkx.all_simple_paths(graph, startNode,endNode)
         startToEndPath = simplePathGen.next()
 
-        # Get list of line segments (line or arc) from start to end
-        segList = []
-        for node0, node1 in zip(startToEndPath[:-1],startToEndPath[1:]):
-            startCoord = graph.node[node0]['coord']
-            endCoord = graph.node[node1]['coord']
-            edgeEntity = graph[node0][node1]['entity']
-            if edgeEntity.dxftype == 'LINE':
-                segList.append((startCoord, endCoord))
-            else: 
-                if self.param['convertArcs']:
-                    arcSegList = self.convertArcToLineList(edgeEntity)
-                    if arcSegList[0][0] != startCoord:
-                        arcSegList = [(y,x) for x,y in arcSegList[::-1]]
-                    segList.extend(arcSegList)
-                else:
-                    raise ValueError, 'convertArcs=False not supported yet'
-        
-        if self.param['convertArcs']:
-            pointList = [p[0] for p in segList]
-            pointList.append(segList[-1][1])
-            boundaryParam = dict(self.param)
-            boundaryParam['pointList'] = pointList 
-            boundaryParam['closed'] = False
-            boundary = cnc_boundary.LineSegBoundaryXY(boundaryParam)
-            listOfCmds = boundary.listOfCmds
-        else:
-            raise ValueError, 'convertArcs=False not supported yet'
+        # Get list of segments (line or arc) along path and create cnc commands
+        segList = self.getSegListFromPath(startToEndPath, graph)
+        param = dict(self.param)
+        param['closed'] = False 
+        listOfCmds = self.makeListOfCmdsFromSegList(segList,param)
         return listOfCmds
 
     def makeCmdsForClosedLoop(self,graph):
-        listOfCmds = []
-
         # Get start and end nodes based on startCond
         if self.param['startCond'] in ('minX', 'maxX'):
             coordAndNodeList = [(graph.node[n]['coord'][0], n) for n in graph]
@@ -234,19 +208,67 @@ class DxfBoundary(DxfBase):
         closedPath.append(startNode)
         closedPathCoord = [graph.node[n]['coord'] for n in closedPath]
 
-        # Test for self instersections
-        linearRing = polygon.LineString(closedPathCoord)
+        lineString = polygon.LineString(closedPathCoord)
+        # Test for self instersections and if none orient closed loop for cutting direction
+        if not lineString.is_simple:
+            if self.param['cutterComp'] is not None:
+                raise ValueError, 'cutterComp is not allowed for non-simple closed loops'
+            cutterComp = None
+        else:
+            linearRing = polygon.LinearRing(closedPathCoord)
+            cwTest = self.param['direction'] == 'cw' and linearRing.is_ccw
+            ccwTest = self.param['direction'] == 'ccw' and not linearRing.is_ccw
+            if cwTest or ccwTest:
+                closedPath.reverse()
+                closedPathCoord.reverse()
 
-        print('closedPath: ', closedPath)
-        print('closePathCoord:', closedPathCoord)
-        print('is_simple: ', linearRing.is_simple)
-        print('is_valid:  ', linearRing.is_valid)
+            cutterComp = self.param['cutterComp']
+            if cutterComp in ('inside', 'outside'):
+                cutterCompTable = {
+                        ('inside',  'ccw') : 'left',
+                        ('inside',  'cw')  : 'right',
+                        ('outside', 'ccw') : 'right',
+                        ('outside', 'cw')  : 'left',
+                        }
+                cutterComp = cutterCompTable[(cutterComp,self.param['direction'])]
 
-
-
-
-
+        # Get list of segments (line or arc) along path and create cnc commands
+        segList = self.getSegListFromPath(closedPath,graph)
+        param = dict(self.param)
+        param['closed'] = True 
+        param['cutterComp'] = cutterComp
+        listOfCmds = self.makeListOfCmdsFromSegList(segList,param)
         return listOfCmds
+
+    def makeListOfCmdsFromSegList(self,segList,param):
+        listOfCmds = []
+        if self.param['convertArcs']:
+            pointList = [p[0] for p in segList]
+            pointList.append(segList[-1][1])
+            param['pointList'] = pointList 
+            boundary = cnc_boundary.LineSegBoundaryXY(param)
+            listOfCmds = boundary.listOfCmds
+        else:
+            raise ValueError, 'convertArcs=False not supported yet'
+        return listOfCmds
+
+    def getSegListFromPath(self, nodePath,  graph):
+        segList = []
+        for node0, node1 in zip(nodePath[:-1],nodePath[1:]):
+            startCoord = graph.node[node0]['coord']
+            endCoord = graph.node[node1]['coord']
+            edgeEntity = graph[node0][node1]['entity']
+            if edgeEntity.dxftype == 'LINE':
+                segList.append((startCoord, endCoord))
+            else: 
+                if self.param['convertArcs']:
+                    arcSegList = self.convertArcToLineList(edgeEntity)
+                    if dist(arcSegList[0][0],startCoord) > self.param['ptEquivTol']:
+                        arcSegList = [(y,x) for x,y in arcSegList[::-1]]
+                    segList.extend(arcSegList)
+                else:
+                    raise ValueError, 'convertArcs=False not supported yet'
+        return segList
 
 
     def getEntityLineList(self):
@@ -430,25 +452,26 @@ if __name__ == '__main__':
 
     if 1:
         #fileName = os.path.join(dxfDir,'boundary_test0.dxf')
-        #fileName = os.path.join(dxfDir,'boundary_test1.dxf')
+        fileName = os.path.join(dxfDir,'boundary_test1.dxf')
         #fileName = os.path.join(dxfDir,'boundary_test2.dxf')
         #fileName = os.path.join(dxfDir,'boundary_test3.dxf')
-        fileName = os.path.join(dxfDir,'boundary_test4.dxf')
+        #fileName = os.path.join(dxfDir,'boundary_test4.dxf')
         param = {
                 'fileName'       : fileName,
                 'depth'       : 0.03,
                 'startZ'      : 0.0,
-                'safeZ'       : 0.15,
+                'safeZ'       : 0.2,
                 'toolDiam'    : 0.25,
                 'direction'   : 'ccw',
                 'cutterComp'  : None,
                 'maxCutDepth' : 0.03,
                 'startDwell'  : 2.0,
+                'startCond'   : 'minX',
                 }
         boundary = DxfBoundary(param)
         prog.add(boundary)
 
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.End(),comment=True)
-    #print(prog)
+    print(prog)
     prog.write('test.ngc')
