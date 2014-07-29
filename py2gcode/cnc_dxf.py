@@ -87,25 +87,6 @@ class DxfDrill(DxfBase):
             self.listOfCmds.extend(drill.listOfCmds)
 
 
-class DxfCircBoundary(DxfBase):
-
-    ALLOWED_TYPE_LIST = ['CIRCLE']
-    DEFAULT_PARAM = {'dxfTypes': ['CIRCLE']}
-
-    def __init__(self,param):
-        super(DxfCircBoundary,self).__init__(param)
-
-    def makeListOfCmds(self):
-        self.listOfCmds = []
-        for entity in self.entityList:
-            bndryParam = dict(self.param)
-            bndryParam['centerX'] = entity.center[0]
-            bndryParam['centerY'] = entity.center[1]
-            bndryParam['radius'] = entity.radius
-            bndry = cnc_boundary.CircBoundaryXY(bndryParam)
-            self.listOfCmds.extend(bndry.listOfCmds)
-
-
 class DxfCircPocket(DxfBase):
 
     ALLOWED_TYPE_LIST = ['CIRCLE']
@@ -123,6 +104,69 @@ class DxfCircPocket(DxfBase):
             pocketParam['radius'] = entity.radius
             pocket = cnc_pocket.CircPocketXY(pocketParam)
             self.listOfCmds.extend(pocket.listOfCmds)
+
+
+class DxfRectPocketFromExtent(DxfBase):
+
+    ALLOWED_TYPE_LIST = ['LINE','POINT']
+    DEFAULT_PARAM = {'dxfTypes': ['LINE','POINT']}
+
+    def __init__(self,param):
+        super(DxfRectPocketFromExtent,self).__init__(param)
+
+    def makeListOfCmds(self):
+        # Get list of coordinates for extent calculation
+        coordList = []
+        for entity in self.entityList:
+            if entity.dxftype == 'LINE':
+                coordList.append(entity.start[:2])
+                coordList.append(entity.end[:2])
+            elif entity.dxftype == 'POINT':
+                coordList.append(entity.point[:2])
+            else:
+                raise ValueError, 'dxftype {0} not supported yet'.format(entity.dxftype)
+
+        # Get x and y coordinates max and min values
+        xCoordList = [p[0] for p in coordList]
+        yCoordList = [p[1] for p in coordList]
+        xMax = max(xCoordList)
+        xMin = min(xCoordList)
+        yMax = max(yCoordList)
+        yMin = min(yCoordList)
+
+        # Calculate center, width and height
+        centerX = 0.5*(xMax + xMin)
+        centerY = 0.5*(yMax + yMin)
+        width = xMax - xMin
+        height = yMax - yMin
+
+        # Create list of commands
+        pocketParam = dict(self.param)
+        pocketParam['centerX'] = centerX
+        pocketParam['centerY'] = centerY
+        pocketParam['width'] = width
+        pocketParam['height'] = height
+        pocket = cnc_pocket.RectPocketXY(pocketParam)
+        self.listOfCmds = pocket.listOfCmds
+
+
+class DxfCircBoundary(DxfBase):
+
+    ALLOWED_TYPE_LIST = ['CIRCLE']
+    DEFAULT_PARAM = {'dxfTypes': ['CIRCLE']}
+
+    def __init__(self,param):
+        super(DxfCircBoundary,self).__init__(param)
+
+    def makeListOfCmds(self):
+        self.listOfCmds = []
+        for entity in self.entityList:
+            bndryParam = dict(self.param)
+            bndryParam['centerX'] = entity.center[0]
+            bndryParam['centerY'] = entity.center[1]
+            bndryParam['radius'] = entity.radius
+            bndry = cnc_boundary.CircBoundaryXY(bndryParam)
+            self.listOfCmds.extend(bndry.listOfCmds)
 
 
 class DxfBoundary(DxfBase):
@@ -434,7 +478,7 @@ if __name__ == '__main__':
         drill = DxfDrill(param)
         prog.add(drill)
 
-    if 1:
+    if 0:
         #fileName = os.path.join(dxfDir, 'circ_boundary_test0.dxf')
         fileName = os.path.join(dxfDir, 'circ_boundary_test1.dxf')
         param = {
@@ -469,6 +513,26 @@ if __name__ == '__main__':
         pocket = DxfCircPocket(param)
         prog.add(pocket)
 
+
+    if 1:
+        fileName = os.path.join(dxfDir,'rect_extent_test.dxf')
+        param = {
+                'fileName'       : fileName,
+                'depth'          : 2*0.04,
+                'startZ'         : 0.0,
+                'safeZ'          : 0.5,
+                'overlap'        : 0.3,
+                'overlapFinish'  : 0.5,
+                'maxCutDepth'    : 0.04,
+                'toolDiam'       : 0.25,
+                'cornerCut'      : False,
+                'direction'      : 'ccw',
+                'startDwell'     : 2.0,
+                }
+        pocket = DxfRectPocketFromExtent(param)
+        prog.add(pocket)
+
+
     if 0:
         fileName = os.path.join(dxfDir,'circ_pocket_test.dxf')
         param = {
@@ -486,6 +550,8 @@ if __name__ == '__main__':
                 }
         pocket = DxfCircPocket(param)
         prog.add(pocket)
+
+
 
     if 0:
         #fileName = os.path.join(dxfDir,'boundary_test0.dxf')
