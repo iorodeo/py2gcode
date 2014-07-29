@@ -20,6 +20,7 @@ import math
 import gcode_cmd
 import cnc_drill
 import cnc_pocket
+import cnc_boundary
 import dxfgrabber
 import networkx
 import numpy
@@ -111,63 +112,105 @@ class DxfBoundary(DxfBase):
             'dxfTypes'    :  ['LINE','ARC'],
             'convertArcs' :  True,
             'ptEquivTol'  :  1.0e-6,
-            'maxArcLen'   :  1.0e-1,
+            'maxArcLen'   :  0.5e-1,
             #'maxArcLen'   :  1.0e-2,
+            'startCond'   : 'minX',
             }
 
     def __init__(self,param):
         super(DxfBoundary,self).__init__(param)
 
+    def makeCmdsForLineString(self,graph):
+        listOfCmds = []
+        if self.param['cutterComp'] is not None:
+            errorMsg = 'cutterComp must be None for line string graphs'
+            raise ValueError, errorMsg
+
+        # Get start and end  node based on startCond.
+        endNodeList = [n for n in graph if graph.degree(n) == 1]
+        if self.param['startCond'] in ('minX', 'maX'):
+            endCoordAndNodeList = [(graph.node[n]['coord'][0],n)  for n in endNodeList]
+        elif self.param['startCond'] in ('minY', 'maxY'):
+            endCoordAndNodeList = [(graph.node[n]['coord'][1],n)  for n in endNodeList]
+        else:
+            raise ValueError, 'unknown startCond {0}'.format(self.param['startCond'])
+        endCoordAndNodeList.sort()
+        if 'min' in  self.param['startCond']:
+            startNode = endCoordAndNodeList[0][1]
+            endNode = endCoordAndNodeList[1][1]
+        else:
+            startNode = endCoordAndNodeList[1][1]
+            endNode = endCoordAndNodeList[0][1]
+
+        # Get path from start to end node (there is only one)
+        simplePathList = networkx.all_simple_paths(graph, startNode,endNode)
+        startToEndPath = simplePathList.next()
+
+        # Get list of line segments (line or arc) from start to end
+        segList = []
+        for node0, node1 in zip(startToEndPath[:-1],startToEndPath[1:]):
+            startCoord = graph.node[node0]['coord']
+            endCoord = graph.node[node1]['coord']
+            edgeEntity = graph[node0][node1]['entity']
+            if edgeEntity.dxftype == 'LINE':
+                segList.append((startCoord, endCoord))
+            else: 
+                if self.param['convertArcs']:
+                    arcSegList = self.convertArcToLineList(edgeEntity)
+                    if arcSegList[0][0] != startCoord:
+                        arcSegList = [(y,x) for x,y in arcSegList[::-1]]
+                    segList.extend(arcSegList)
+                else:
+                    raise ValueError, 'convertArcs=False not supported yet'
+        
+        if self.param['convertArcs']:
+            pointList = [p[0] for p in segList]
+            pointList.append(segList[-1][1])
+            boundaryParam = dict(self.param)
+            boundaryParam['pointList'] = pointList 
+            boundaryParam['closed'] = False
+            boundary = cnc_boundary.LineSegBoundaryXY(boundaryParam)
+            listOfCmds = boundary.listOfCmds
+        else:
+            raise ValueError, 'convertArcs=False not supported yet'
+        return listOfCmds
+
+    def makeCmdsForClosedLoop(self,graph):
+        print('makeCmdsForClosedLoop')
+        listOfCmds = []
+        return listOfCmds
+
+
     def makeListOfCmds(self):
         self.listOfCmds = []
-
         # Get entity graph and find connected components
         graph, ptToNodeDict = getEntityGraph(self.entityList,self.param['ptEquivTol'])
         connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
-
+        # Remove any trivial edges - sometimes happens due to drawing errors
+        for edge in graph.edges():
+            if edge[0] == edge[1]:
+                graph.remove_edge(*edge)
         for i, subGraph in enumerate(connectedCompSubGraphs):
-            print('subGraph',i)
             nodeDegreeList = [subGraph.degree(n) for n in subGraph]
             maxNodeDegree = max(nodeDegreeList)
             minNodeDegree = min(nodeDegreeList)
             if maxNodeDegree > 2:
-                # Funky graph -  treat each entity as  separate boundry
-                print(' funky graph')
-                if self.param['cutterComp'] is not None:
-                    errorMsg = 'cutterComp must be None for entity graphs with degree > 2'
-                    raise ValueError, errorMsg
+                # Graph is complicated - treat each entity as separate task 
+                for edge in subGraph.edges():
+                    edgeGraph = subGraph.subgraph(edge)
+                    listOfCmds = self.makeCmdsForLineString(edgeGraph)
+                    self.listOfCmds.extend(listOfCmds)
             elif maxNodeDegree == 2 and minNodeDegree == 2:
-                # Graph is a closed loop  
-                print(' closed loop')
-                pass
+                # Graph is closed loop
+                listOfCmds = self.makeCmdsForClosedLoop(subGraph)
+                self.listOfCmds.extend(listOfCmds)
             elif minNodeDegree == 1:
-                # Boundary is open chain of lines and arcs
-                print(' open chain')
-                if self.param['cutterComp'] is not None:
-                    errorMsg = 'cutterComp must be None for open entity graphs'
-                    raise ValueError, errorMsg
+                # Graph is line string
+                listOfCmds = self.makeCmdsForLineString(subGraph)
+                self.listOfCmds.extend(listOfCmds)
             else:
-                continue
-
-            #print('subGraph:', i)
-            #for j, edge in enumerate(subGraph.edges()):
-            #    n,m = edge
-            #    entity = subGraph[n][m]['entity']
-            #    print('  edge:', j, edge, entity)
-
-
-        #if self.param['convertArcs']:
-        #    lineList = self.getEntityLineList()
-        #    #for line in lineList:
-        #    #    p0, p1 = line
-        #    #    x0, y0 = p0
-        #    #    x1, y1 = p1
-        #    #    plt.plot([x0,x1],[y0,y1],'b')
-        #    #plt.show()
-
-        #else:
-        #    raise ValueError, 'case convertArc = False not implemented yet'
-
+                errorMsg = 'sub-graph has nodes with degree 0'
+                raise ValueError, errorMsg
     
     def getEntityLineList(self):
         lineList = []
@@ -205,7 +248,6 @@ class DxfBoundary(DxfBase):
         return lineList
 
 
-
 # Utility functions
 # -----------------------------------------------------------------------------
 def getEntityGraph(entityList, ptEquivTol=1.0e-6):
@@ -214,9 +256,9 @@ def getEntityGraph(entityList, ptEquivTol=1.0e-6):
     for entity in entityList:
         startPt, endPt = getEntityStartAndEndPts(entity)
         startNode = ptToNodeDict[startPt]
-        graph.add_node(startNode)
+        graph.add_node(startNode,coord=startPt)
         endNode = ptToNodeDict[endPt]
-        graph.add_node(endNode)
+        graph.add_node(endNode,coord=endPt)
         graph.add_edge(startNode, endNode, entity=entity)
     return graph, ptToNodeDict
 

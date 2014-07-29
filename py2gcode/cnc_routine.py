@@ -41,7 +41,10 @@ class SafeZRoutine(gcode_cmd.GCodeProg):
         self.listOfCmds.append(gcode_cmd.Comment(commentStr))
         self.listOfCmds.append(gcode_cmd.Comment('-'*60))
         for k,v in self.param.iteritems():
-            self.listOfCmds.append(gcode_cmd.Comment('{0}: {1}'.format(k,v)))
+            vStr = str(v)
+            if len(vStr) > 50:
+                vStr = 'too big' 
+            self.listOfCmds.append(gcode_cmd.Comment('{0}: {1}'.format(k,vStr)))
 
     def addEndComment(self):
         self.listOfCmds.append(gcode_cmd.Space())
