@@ -87,6 +87,25 @@ class DxfDrill(DxfBase):
             self.listOfCmds.extend(drill.listOfCmds)
 
 
+class DxfCircBoundary(DxfBase):
+
+    ALLOWED_TYPE_LIST = ['CIRCLE']
+    DEFAULT_PARAM = {'dxfTypes': ['CIRCLE']}
+
+    def __init__(self,param):
+        super(DxfCircBoundary,self).__init__(param)
+
+    def makeListOfCmds(self):
+        self.listOfCmds = []
+        for entity in self.entityList:
+            bndryParam = dict(self.param)
+            bndryParam['centerX'] = entity.center[0]
+            bndryParam['centerY'] = entity.center[1]
+            bndryParam['radius'] = entity.radius
+            bndry = cnc_boundary.CircBoundaryXY(bndryParam)
+            self.listOfCmds.extend(bndry.listOfCmds)
+
+
 class DxfCircPocket(DxfBase):
 
     ALLOWED_TYPE_LIST = ['CIRCLE']
@@ -415,6 +434,24 @@ if __name__ == '__main__':
         drill = DxfDrill(param)
         prog.add(drill)
 
+    if 1:
+        #fileName = os.path.join(dxfDir, 'circ_boundary_test0.dxf')
+        fileName = os.path.join(dxfDir, 'circ_boundary_test1.dxf')
+        param = {
+                'fileName'     : fileName,
+                'layers'       : ['layer1', 'layer2'],
+                'depth'        : 0.2,
+                'startZ'       : 0.0,
+                'safeZ'        : 0.15,
+                'toolDiam'     : 0.25,
+                'toolOffset'   : 'inside',
+                'direction'    : 'ccw',
+                'maxCutDepth'  : 0.03,
+                'startDwell'   : 2.0,
+                }
+        boundary = DxfCircBoundary(param)
+        prog.add(boundary)
+
     if 0:
         fileName = os.path.join(dxfDir,'circ_pocket_test.dxf')
         param = {
@@ -450,7 +487,7 @@ if __name__ == '__main__':
         pocket = DxfCircPocket(param)
         prog.add(pocket)
 
-    if 1:
+    if 0:
         #fileName = os.path.join(dxfDir,'boundary_test0.dxf')
         fileName = os.path.join(dxfDir,'boundary_test1.dxf')
         #fileName = os.path.join(dxfDir,'boundary_test2.dxf')
