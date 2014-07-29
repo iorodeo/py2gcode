@@ -24,6 +24,7 @@ import cnc_boundary
 import dxfgrabber
 import networkx
 import numpy
+import shapely.geometry.polygon as polygon
 import matplotlib.pyplot as plt
 
 class DxfBase(gcode_cmd.GCodeProg):
@@ -120,66 +121,6 @@ class DxfBoundary(DxfBase):
     def __init__(self,param):
         super(DxfBoundary,self).__init__(param)
 
-    def makeCmdsForLineString(self,graph):
-        listOfCmds = []
-        if self.param['cutterComp'] is not None:
-            errorMsg = 'cutterComp must be None for line string graphs'
-            raise ValueError, errorMsg
-
-        # Get start and end  node based on startCond.
-        endNodeList = [n for n in graph if graph.degree(n) == 1]
-        if self.param['startCond'] in ('minX', 'maX'):
-            endCoordAndNodeList = [(graph.node[n]['coord'][0],n)  for n in endNodeList]
-        elif self.param['startCond'] in ('minY', 'maxY'):
-            endCoordAndNodeList = [(graph.node[n]['coord'][1],n)  for n in endNodeList]
-        else:
-            raise ValueError, 'unknown startCond {0}'.format(self.param['startCond'])
-        endCoordAndNodeList.sort()
-        if 'min' in  self.param['startCond']:
-            startNode = endCoordAndNodeList[0][1]
-            endNode = endCoordAndNodeList[1][1]
-        else:
-            startNode = endCoordAndNodeList[1][1]
-            endNode = endCoordAndNodeList[0][1]
-
-        # Get path from start to end node (there is only one)
-        simplePathList = networkx.all_simple_paths(graph, startNode,endNode)
-        startToEndPath = simplePathList.next()
-
-        # Get list of line segments (line or arc) from start to end
-        segList = []
-        for node0, node1 in zip(startToEndPath[:-1],startToEndPath[1:]):
-            startCoord = graph.node[node0]['coord']
-            endCoord = graph.node[node1]['coord']
-            edgeEntity = graph[node0][node1]['entity']
-            if edgeEntity.dxftype == 'LINE':
-                segList.append((startCoord, endCoord))
-            else: 
-                if self.param['convertArcs']:
-                    arcSegList = self.convertArcToLineList(edgeEntity)
-                    if arcSegList[0][0] != startCoord:
-                        arcSegList = [(y,x) for x,y in arcSegList[::-1]]
-                    segList.extend(arcSegList)
-                else:
-                    raise ValueError, 'convertArcs=False not supported yet'
-        
-        if self.param['convertArcs']:
-            pointList = [p[0] for p in segList]
-            pointList.append(segList[-1][1])
-            boundaryParam = dict(self.param)
-            boundaryParam['pointList'] = pointList 
-            boundaryParam['closed'] = False
-            boundary = cnc_boundary.LineSegBoundaryXY(boundaryParam)
-            listOfCmds = boundary.listOfCmds
-        else:
-            raise ValueError, 'convertArcs=False not supported yet'
-        return listOfCmds
-
-    def makeCmdsForClosedLoop(self,graph):
-        print('makeCmdsForClosedLoop')
-        listOfCmds = []
-        return listOfCmds
-
 
     def makeListOfCmds(self):
         self.listOfCmds = []
@@ -211,7 +152,103 @@ class DxfBoundary(DxfBase):
             else:
                 errorMsg = 'sub-graph has nodes with degree 0'
                 raise ValueError, errorMsg
-    
+            
+
+    def makeCmdsForLineString(self,graph):
+        listOfCmds = []
+
+        if self.param['cutterComp'] is not None:
+            errorMsg = 'cutterComp must be None for line string graphs'
+            raise ValueError, errorMsg
+
+        # Get start and end  node based on startCond.
+        endNodeList = [n for n in graph if graph.degree(n) == 1]
+        if self.param['startCond'] in ('minX', 'maX'):
+            endCoordAndNodeList = [(graph.node[n]['coord'][0],n)  for n in endNodeList]
+        elif self.param['startCond'] in ('minY', 'maxY'):
+            endCoordAndNodeList = [(graph.node[n]['coord'][1],n)  for n in endNodeList]
+        else:
+            raise ValueError, 'unknown startCond {0}'.format(self.param['startCond'])
+        endCoordAndNodeList.sort()
+        if 'min' in  self.param['startCond']:
+            startNode = endCoordAndNodeList[0][1]
+            endNode = endCoordAndNodeList[1][1]
+        else:
+            startNode = endCoordAndNodeList[1][1]
+            endNode = endCoordAndNodeList[0][1]
+
+        # Get path from start to end node (there is only one)
+        simplePathGen = networkx.all_simple_paths(graph, startNode,endNode)
+        startToEndPath = simplePathGen.next()
+
+        # Get list of line segments (line or arc) from start to end
+        segList = []
+        for node0, node1 in zip(startToEndPath[:-1],startToEndPath[1:]):
+            startCoord = graph.node[node0]['coord']
+            endCoord = graph.node[node1]['coord']
+            edgeEntity = graph[node0][node1]['entity']
+            if edgeEntity.dxftype == 'LINE':
+                segList.append((startCoord, endCoord))
+            else: 
+                if self.param['convertArcs']:
+                    arcSegList = self.convertArcToLineList(edgeEntity)
+                    if arcSegList[0][0] != startCoord:
+                        arcSegList = [(y,x) for x,y in arcSegList[::-1]]
+                    segList.extend(arcSegList)
+                else:
+                    raise ValueError, 'convertArcs=False not supported yet'
+        
+        if self.param['convertArcs']:
+            pointList = [p[0] for p in segList]
+            pointList.append(segList[-1][1])
+            boundaryParam = dict(self.param)
+            boundaryParam['pointList'] = pointList 
+            boundaryParam['closed'] = False
+            boundary = cnc_boundary.LineSegBoundaryXY(boundaryParam)
+            listOfCmds = boundary.listOfCmds
+        else:
+            raise ValueError, 'convertArcs=False not supported yet'
+        return listOfCmds
+
+    def makeCmdsForClosedLoop(self,graph):
+        listOfCmds = []
+
+        # Get start and end nodes based on startCond
+        if self.param['startCond'] in ('minX', 'maxX'):
+            coordAndNodeList = [(graph.node[n]['coord'][0], n) for n in graph]
+        elif self.param['startCond'] in ('minY', 'maxY'):
+            coordAndNodeList = [(graph.node[n]['coord'][1], n) for n in graph]
+        else:
+            raise ValueError, 'unknown startCond {0}'.format(self.param['startCond'])
+        coordAndNodeList.sort()
+        if 'min' in self.param['startCond']:
+            startNode = coordAndNodeList[0][1]
+        else:
+            startNode = coordAndNodeList[-1][1]
+        endNode = graph.neighbors(startNode)[0]
+
+        # Get path around graph
+        simplePathList = [p for p in networkx.all_simple_paths(graph,startNode,endNode)]
+        lenAndSimplePathList = [(len(p),p) for p in simplePathList]
+        closedPath = max(lenAndSimplePathList)[1]
+        closedPath.append(startNode)
+        closedPathCoord = [graph.node[n]['coord'] for n in closedPath]
+
+        # Test for self instersections
+        linearRing = polygon.LineString(closedPathCoord)
+
+        print('closedPath: ', closedPath)
+        print('closePathCoord:', closedPathCoord)
+        print('is_simple: ', linearRing.is_simple)
+        print('is_valid:  ', linearRing.is_valid)
+
+
+
+
+
+        return listOfCmds
+
+
     def getEntityLineList(self):
         lineList = []
         for entity in self.entityList:
@@ -222,6 +259,7 @@ class DxfBoundary(DxfBase):
                 arcLineList = self.convertArcToLineList(entity)
                 lineList.extend(arcLineList)
         return lineList
+    
 
     def convertArcToLineList(self,arc):
         xc = arc.center[0]
@@ -246,6 +284,8 @@ class DxfBoundary(DxfBase):
             lineSeg = ((x0,y0), (x1,y1))
             lineList.append(lineSeg)
         return lineList
+
+
 
 
 # Utility functions
@@ -392,7 +432,8 @@ if __name__ == '__main__':
         #fileName = os.path.join(dxfDir,'boundary_test0.dxf')
         #fileName = os.path.join(dxfDir,'boundary_test1.dxf')
         #fileName = os.path.join(dxfDir,'boundary_test2.dxf')
-        fileName = os.path.join(dxfDir,'boundary_test3.dxf')
+        #fileName = os.path.join(dxfDir,'boundary_test3.dxf')
+        fileName = os.path.join(dxfDir,'boundary_test4.dxf')
         param = {
                 'fileName'       : fileName,
                 'depth'       : 0.03,
@@ -409,5 +450,5 @@ if __name__ == '__main__':
 
     prog.add(gcode_cmd.Space())
     prog.add(gcode_cmd.End(),comment=True)
-    print(prog)
+    #print(prog)
     prog.write('test.ngc')
