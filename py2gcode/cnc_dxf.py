@@ -60,10 +60,15 @@ class DxfBase(gcode_cmd.GCodeProg):
 class DxfDrill(DxfBase):
 
     ALLOWED_TYPE_LIST = ['POINT', 'CIRCLE', 'ARC']
-    DEFAULT_PARAM = {'dxfTypes': ['CIRCLE']}
+    DEFAULT_PARAM = {
+            'dxfTypes'  : ['CIRCLE'],
+            'startCond' : 'minX',
+            }
 
     def __init__(self,param):
         super(DxfDrill,self).__init__(param)
+
+
 
     @property
     def drillClass(self):
@@ -73,14 +78,45 @@ class DxfDrill(DxfBase):
             drill = cnc_drill.SimpleDrill
         return drill 
 
+    #@property
+    #def sortedEntityList(self):
+    #    startEntity = self.getStartEntity()
+    #    startPt = self.getCenterPt(startEntity)
+
+    #def getStartEntity(self):
+    #    centerPtAndEntityList = [(self.getCenterPt(e), e) for e in self.entityList]
+    #    if 'X' in self.param['startCond']:
+    #        coordAndEntityList = [(pt[0], e) for pt, e in centerPtAndEntityList]
+    #    elif 'Y' in self.param['startCond']:
+    #        coordAndEntityList = [(pt[1], e) for pt, e in centerPtAndEntityList]
+    #    else:
+    #        raise ValueError, 'uknown start cond {0}'.format(self.param['startCond'])
+
+    #    if 'min' in self.param['startCond']:
+    #        opFunc = min
+    #    elif 'max' in self.param['startCond']:
+    #        opFunc = max
+    #    else:
+    #        raise ValueError, 'uknown start cond {0}'.format(self.param['startCond'])
+    #    startPt, startEntity = opFunc(coordAndEntityList) 
+    #    return startEntity
+
+    def getCenterPt(self,entity):
+        if entity.dxftype == 'POINT':
+            centerPt = entity.point
+        else:
+            centerPt = entity.center 
+        return centerPt
+
     def makeListOfCmds(self):
         self.listOfCmds = []
+        # ------------------------------------------------------------------------
+        # Note: for better efficiency it might be worth while sorting the entities
+        # based on some criteria .....distance, etc.
+        # -------------------------------------------------------------------------
         for entity in self.entityList:
             drillParam = dict(self.param)
-            if entity.dxftype == 'POINT':
-                centerPt = entity.point
-            else:
-                centerPt = entity.center 
+            centerPt = self.getCenterPt(entity)
             drillParam['centerX'] = centerPt[0]
             drillParam['centerY'] = centerPt[1]
             drill = self.drillClass(drillParam)
@@ -176,8 +212,7 @@ class DxfBoundary(DxfBase):
             'dxfTypes'    :  ['LINE','ARC'],
             'convertArcs' :  True,
             'ptEquivTol'  :  1.0e-6,
-            'maxArcLen'   :  1.0e-1,
-            #'maxArcLen'   :  1.0e-2,
+            'maxArcLen'   :  1.0e-2,
             'startCond'   : 'minX',
             }
 
