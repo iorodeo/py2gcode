@@ -320,6 +320,7 @@ class LineSegBoundaryXY(BoundaryBase):
         
         if cutterComp is not None:
             # Move back to leadin start 
+            # Note, not great may need better criteria for selecting 2nd point 
             xLead, yLead = self.getCutterCompLeadIn(pointList[0],pointList[1])
             self.addRapidMoveToPos(x=xLead,y=yLead, comment='cutterComp start move')
 
@@ -343,7 +344,12 @@ class LineSegBoundaryXY(BoundaryBase):
 
         # Cancel cutter compensation
         self.listOfCmds.append(gcode_cmd.CancelCutterCompensation())
-        xLead, yLead = self.getCutterCompLeadIn(pointList[-1], pointList[-2])
+        # Get move to remove cutter compensation. Note, this is not great - may want to 
+        # use some sort of distance tolerance for criteria on second point.
+        k = 2
+        while pointList[-1] == pointList[-k]:
+            k += 1
+        xLead, yLead = self.getCutterCompLeadIn(pointList[-1], pointList[-k])
         self.addRapidMoveToPos(x=xLead,y=yLead,comment='cancel cutter comp move')
         xEnd, yEnd = pointList[-1]
         self.addRapidMoveToPos(x=xEnd,y=yEnd,comment='cancel cutter comp move') 

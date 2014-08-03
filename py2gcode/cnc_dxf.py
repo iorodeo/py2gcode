@@ -224,11 +224,11 @@ class DxfBoundary(DxfBase):
         self.listOfCmds = []
         # Get entity graph and find connected components
         graph, ptToNodeDict = getEntityGraph(self.entityList,self.param['ptEquivTol'])
-        connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
         # Remove any trivial edges - sometimes happens due to drawing errors
         for edge in graph.edges():
             if edge[0] == edge[1]:
                 graph.remove_edge(*edge)
+        connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
         for i, subGraph in enumerate(connectedCompSubGraphs):
             nodeDegreeList = [subGraph.degree(n) for n in subGraph]
             maxNodeDegree = max(nodeDegreeList)
@@ -348,6 +348,13 @@ class DxfBoundary(DxfBase):
             listOfCmds = boundary.listOfCmds
         else:
             raise ValueError, 'convertArcs=False not supported yet'
+
+        #xList = [p[0] for p in pointList]
+        #yList = [p[1] for p in pointList]
+        #plt.plot(xList[:78],yList[:78],'.')
+        #plt.axis('equal')
+        #plt.show()
+
         return listOfCmds
 
     def getSegListFromPath(self, nodePath,  graph):
