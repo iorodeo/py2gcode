@@ -68,8 +68,6 @@ class DxfDrill(DxfBase):
     def __init__(self,param):
         super(DxfDrill,self).__init__(param)
 
-
-
     @property
     def drillClass(self):
         if 'stepZ' in self.param:
@@ -145,15 +143,34 @@ class DxfCircPocket(DxfBase):
 class DxfRectPocketFromExtent(DxfBase):
 
     ALLOWED_TYPE_LIST = ['LINE','POINT']
-    DEFAULT_PARAM = {'dxfTypes': ['LINE','POINT']}
+    DEFAULT_PARAM = {
+            'dxfTypes'    : ['LINE','POINT'],
+            'ptEquivTol'  :  1.0e-5,
+            'components'  : True,
+            }
 
     def __init__(self,param):
         super(DxfRectPocketFromExtent,self).__init__(param)
 
     def makeListOfCmds(self):
-        # Get list of coordinates for extent calculation
+        self.listOfCmds = []
+        if self.param['components']:
+            # Get entity graph and find connected components
+            graph, ptToNodeDict = getEntityGraph(self.entityList,self.param['ptEquivTol'])
+            connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
+            # Create list of commands for each connected component individually
+            for i, subGraph in enumerate(connectedCompSubGraphs):
+                entityList = [subGraph[n][m]['entity'] for n, m in subGraph.edges()]
+                self.listOfCmds.extend(self.makeListOfCmdsForEntityList(entityList))
+        else:
+            self.listOfCmds.extend(self.makeListOfCmdsForEntityList(self.entityList))
+
+    def makeListOfCmdsForEntityList(self,entityList):
+        """
+        Generates rectangular pocket from extent of entities in the given list.
+        """
         coordList = []
-        for entity in self.entityList:
+        for entity in entityList:
             if entity.dxftype == 'LINE':
                 coordList.append(entity.start[:2])
                 coordList.append(entity.end[:2])
@@ -183,7 +200,8 @@ class DxfRectPocketFromExtent(DxfBase):
         pocketParam['width'] = width
         pocketParam['height'] = height
         pocket = cnc_pocket.RectPocketXY(pocketParam)
-        self.listOfCmds = pocket.listOfCmds
+        return pocket.listOfCmds 
+
 
 
 class DxfCircBoundary(DxfBase):
@@ -211,7 +229,7 @@ class DxfBoundary(DxfBase):
     DEFAULT_PARAM = {
             'dxfTypes'    :  ['LINE','ARC'],
             'convertArcs' :  True,
-            'ptEquivTol'  :  1.0e-6,
+            'ptEquivTol'  :  1.0e-5,
             'maxArcLen'   :  1.0e-2,
             'startCond'   : 'minX',
             }
@@ -224,11 +242,8 @@ class DxfBoundary(DxfBase):
         self.listOfCmds = []
         # Get entity graph and find connected components
         graph, ptToNodeDict = getEntityGraph(self.entityList,self.param['ptEquivTol'])
-        # Remove any trivial edges - sometimes happens due to drawing errors
-        for edge in graph.edges():
-            if edge[0] == edge[1]:
-                graph.remove_edge(*edge)
         connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
+        # Create list of commands for each connected component individually
         for i, subGraph in enumerate(connectedCompSubGraphs):
             nodeDegreeList = [subGraph.degree(n) for n in subGraph]
             maxNodeDegree = max(nodeDegreeList)
@@ -427,6 +442,10 @@ def getEntityGraph(entityList, ptEquivTol=1.0e-6):
         endNode = ptToNodeDict[endPt]
         graph.add_node(endNode,coord=endPt)
         graph.add_edge(startNode, endNode, entity=entity)
+    for edge in graph.edges():
+        # Remove any trivial edges - perhaps due to drawing errors?
+        if edge[0] == edge[1]:
+            graph.remove_edge(*edge)
     return graph, ptToNodeDict
 
 def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):
@@ -556,10 +575,11 @@ if __name__ == '__main__':
         prog.add(pocket)
 
 
-    if 1:
-        fileName = os.path.join(dxfDir,'rect_extent_test.dxf')
+    if 0:
+        fileName = os.path.join(dxfDir,'rect_extent_test0.dxf')
         param = {
                 'fileName'       : fileName,
+                'components'     : False,
                 'depth'          : 2*0.04,
                 'startZ'         : 0.0,
                 'safeZ'          : 0.5,
@@ -574,6 +594,25 @@ if __name__ == '__main__':
         pocket = DxfRectPocketFromExtent(param)
         prog.add(pocket)
 
+
+    if 1:
+        fileName = os.path.join(dxfDir,'rect_extent_test1.dxf')
+        param = {
+                'fileName'       : fileName,
+                'components'     : True,
+                'depth'          : 2*0.04,
+                'startZ'         : 0.0,
+                'safeZ'          : 0.5,
+                'overlap'        : 0.3,
+                'overlapFinish'  : 0.5,
+                'maxCutDepth'    : 0.04,
+                'toolDiam'       : 0.25,
+                'cornerCut'      : False,
+                'direction'      : 'ccw',
+                'startDwell'     : 2.0,
+                }
+        pocket = DxfRectPocketFromExtent(param)
+        prog.add(pocket)
 
     if 0:
         fileName = os.path.join(dxfDir,'circ_pocket_test.dxf')
