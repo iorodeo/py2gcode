@@ -23,8 +23,11 @@ import cnc_path
 
 class SafeZRoutine(gcode_cmd.GCodeProg):
 
+    DEFAULT_PARAM = {} 
+
     def __init__(self,param):
-        self.param = param
+        self.param = dict(self.DEFAULT_PARAM)
+        self.param.update(param)
         safeZ = float(self.param['safeZ'])
         startZ = float(self.param['startZ'])
         assert safeZ > startZ, 'safeZ must be > startZ'

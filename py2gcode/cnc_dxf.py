@@ -26,6 +26,7 @@ import networkx
 import numpy
 import shapely.geometry.polygon as polygon
 import matplotlib.pyplot as plt
+from geom_utils import dist2D
 
 class DxfBase(gcode_cmd.GCodeProg):
 
@@ -237,7 +238,6 @@ class DxfBoundary(DxfBase):
     def __init__(self,param):
         super(DxfBoundary,self).__init__(param)
 
-
     def makeListOfCmds(self):
         self.listOfCmds = []
         # Get entity graph and find connected components
@@ -383,7 +383,7 @@ class DxfBoundary(DxfBase):
             else: 
                 if self.param['convertArcs']:
                     arcSegList = self.convertArcToLineList(edgeEntity)
-                    if dist(arcSegList[0][0],startCoord) > self.param['ptEquivTol']:
+                    if dist2D(arcSegList[0][0],startCoord) > self.param['ptEquivTol']:
                         arcSegList = [(y,x) for x,y in arcSegList[::-1]]
                     segList.extend(arcSegList)
                 else:
@@ -458,7 +458,7 @@ def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):
     for i, p in enumerate(ptList):
         found = False
         for q in ptList[:i]:
-            if dist(p,q) < ptEquivTol:
+            if dist2D(p,q) < ptEquivTol:
                 found = True
                 ptToNodeDict[p] = ptToNodeDict[q] 
                 break
@@ -494,8 +494,6 @@ def getEntityStartAndEndPts(entity):
     return startPt, endPt
 
 
-def dist(p,q):
-    return math.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
 
 
 # -----------------------------------------------------------------------------

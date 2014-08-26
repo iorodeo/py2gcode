@@ -20,6 +20,7 @@ import math
 import gcode_cmd
 import cnc_path
 import cnc_routine
+from geom_utils import dist2D, midPoint2D
 
 
 class BoundaryBase(cnc_routine.SafeZRoutine):
@@ -241,6 +242,8 @@ class LineSegBoundaryXY(BoundaryBase):
     Generates toolpath for cutting a boundary based on a segment path.
 
     """
+
+    DEFAULT_PARAM = {'ptEquivTol'  :  1.0e-5}
     
     def __init__(self,param):
         """
@@ -257,6 +260,7 @@ class LineSegBoundaryXY(BoundaryBase):
         maxCutDepth    = maximum per pass cutting depth 
         startDwell     = dwell duration before start (optional)
         closed         = whether or not path is open or closed.
+        ptEquivTol     = tolerance for determine wheter or not two points are equal 
         """
         super(LineSegBoundaryXY,self).__init__(param)
 
@@ -280,24 +284,6 @@ class LineSegBoundaryXY(BoundaryBase):
         startDwell = self.getStartDwell()
         toolDiam = abs(float(self.param['toolDiam']))
 
-        if self.param['closed']:
-            pointList.append(pointList[0])
-        else:
-            pointListRev = pointList[::-1]
-            pointList.extend(pointListRev)
-
-        # Get list of line segment paths
-        zPairsList = self.getZPairsList()
-        lineSegPathList = []
-        for z0, z1 in zPairsList:
-            lineSegPath = cnc_path.LineSegPath(
-                    pointList,
-                    closed=False,
-                    plane='xy',
-                    helix=(z0,z1)
-                    )
-            lineSegPathList.append(lineSegPath)
-
         cutterComp = self.param['cutterComp']
         if cutterComp is not None:
             if cutterComp not in ('inside', 'outside', 'left', 'right'):
@@ -308,6 +294,33 @@ class LineSegBoundaryXY(BoundaryBase):
                 # Convert cutter comp to 'left' or 'right' based on line seg path
                 # ---------------------------------------------------------------------------
                 raise ValueError, 'inside/outside cutter compensation not implemented yet'
+
+        if self.param['closed']:
+            if dist2D(pointList[-1],pointList[0]) > self.param['ptEquivTol']:
+                pointList.append(pointList[0])
+        else:
+            pointListRev = pointList[::-1]
+            pointList.extend(pointListRev)
+
+
+        # Get list of line segment paths
+        zPairsList = self.getZPairsList()
+        lineSegPathList = []
+        for i, zPair  in enumerate(zPairsList):
+            z0, z1 = zPair
+            if self.param['closed'] and cutterComp is not None:
+                if i == len(zPairsList)-1:
+                    # On closed paths, when using cutter compensation add 
+                    # stub into next segment so that we don't over cut.
+                    stubPt = self.getStubPoint(pointList)
+                    pointList.append(stubPt)
+            lineSegPath = cnc_path.LineSegPath(
+                    pointList,
+                    closed=False,
+                    plane='xy',
+                    helix=(z0,z1)
+                    )
+            lineSegPathList.append(lineSegPath)
             
         # Get x,y coord of first point
         firstPath = lineSegPathList[0]
@@ -354,6 +367,27 @@ class LineSegBoundaryXY(BoundaryBase):
         xEnd, yEnd = pointList[-1]
         self.addRapidMoveToPos(x=xEnd,y=yEnd,comment='cancel cutter comp move') 
         self.addEndComment()
+
+    def getStubPoint(self,pointList):
+        """
+        Get pint  for short line stub segment from p = pointList[0] to the next
+        non-equivalent point in the poinList. Note equivalence is determined
+        using the ptEquivTol parameter. This is used to prevent over cutting on
+        closed paths when using cutter compensation.
+        """
+        p = pointList[0]
+        n = 1
+        while dist2D(p,pointList[n]) < self.param['ptEquivTol']:
+            n += 1
+            if n == len(pointList):
+                raise ValueError, 'pointList - all points within ptEquivTol of each other'
+        q = pointList[n]
+        distpq = dist2D(p,q)
+        t = self.param['toolDiam']/distpq
+        t = min([0.5,t])
+        stubX = 0.5*(q[0] - p[0])*t + p[0]
+        stubY = 0.5*(q[1] - p[1])*t + p[1]
+        return stubX, stubY
 
 
 # -----------------------------------------------------------------------------
