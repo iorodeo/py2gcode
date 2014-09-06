@@ -21,7 +21,10 @@ import gcode_cmd
 import cnc_path
 import cnc_routine
 import warnings
-from geom_utils import dist2D, midPoint2D
+from geom_utils import dist2D
+from geom_utils import midPoint2D
+from geom_utils import LineSegment
+from geom_utils import ArcSegment
 
 
 class BoundaryBase(cnc_routine.SafeZRoutine):
@@ -256,7 +259,10 @@ class CircBoundaryXY(BoundaryBase):
 class LineSegBoundaryXY(BoundaryBase):
     """
 
-    Generates toolpath for cutting a boundary based on a segment path.
+    Generates toolpath for cutting a boundary based on a line segment path.
+
+    TODO: finish adding 'inside' and 'outside' to cutterComp options. Note,
+    this option is already available via cnc_dxf.DxfBoundary.
 
     """
 
@@ -405,6 +411,38 @@ class LineSegBoundaryXY(BoundaryBase):
         stubX = 0.5*(q[0] - p[0])*t + p[0]
         stubY = 0.5*(q[1] - p[1])*t + p[1]
         return stubX, stubY
+
+
+class MixedSegBoundaryXY(BoundaryBase):
+    """
+
+    Generates toolpath for cutting a boundary based on a a mixed (arc + line)
+    segment path.
+
+    """
+    DEFAULT_PARAM = {'ptEquivTol'  :  1.0e-5}
+
+    def __init__(self,param):
+        """
+        param dict
+
+        keys          values
+        --------------------------------------------------------------
+        segList        = boundary segment list
+        depth          = cut depth  
+        startZ         = height at which to start cutting 
+        safeZ          = safe tool height 
+        toolDiam       = tool diameter
+        cutterComp     = left, right, inside, outside, none (NOT DONE)
+        maxCutDepth    = maximum per pass cutting depth 
+        startDwell     = dwell duration before start (optional)
+        closed         = whether or not path is open or closed.
+        ptEquivTol     = tolerance for determine wheter or not two points are equal 
+        """
+        super(MixedSegBoundaryXY,self).__init__(param)
+
+    def makeListOfCmds(self):
+        pass
 
 
 # -----------------------------------------------------------------------------
