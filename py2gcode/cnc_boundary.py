@@ -20,6 +20,7 @@ import math
 import gcode_cmd
 import cnc_path
 import cnc_routine
+import warnings
 from geom_utils import dist2D, midPoint2D
 
 
@@ -47,6 +48,19 @@ class BoundaryBase(cnc_routine.SafeZRoutine):
         zPairsList.append((zList[-1],zList[-1]))
         return zPairsList
 
+    def checkForDeprecatedParam(self):
+        # replace toolOffset with cutterComp if possible, issue warning
+        if 'toolOffset' in self.param:
+            className = self.__class__.__name__
+            warnMsg = '{0} use of toolOffset is deprecated'.format(className)
+            warnings.warn(warnMsg, DeprecationWarning)
+            if not 'cutterComp'  in self.param:
+                self.param['cutterComp'] = self.param['toolOffset']
+            else:
+                errorMsg = '{0} toolOffset and cutterComp both defined'.format(className)
+                raise RuntimeError(errorMsg)
+
+
 
 class RectBoundaryXY(BoundaryBase):
     """ 
@@ -54,7 +68,6 @@ class RectBoundaryXY(BoundaryBase):
     Generates a tool path for cutting a rectangular boundary
 
     """
-
     def __init__(self,param):
         """
         param dict
@@ -71,13 +84,15 @@ class RectBoundaryXY(BoundaryBase):
         safeZ          = safe tool height 
         direction      = cut direction 'cw' or 'ccw'
         toolDiam       = tool diameter
-        toolOffset     = inside, outside, none
+        cutterComp     = inside, outside, none
         maxCutDepth    = maximum per pass cutting depth 
         startDwell     = dwell duration before start (optional)
         """
         super(RectBoundaryXY,self).__init__(param)
 
     def makeListOfCmds(self):
+
+        self.checkForDeprecatedParam()
 
         # Extract basic cutting parameters
         cx = float(self.param['centerX'])
@@ -95,19 +110,19 @@ class RectBoundaryXY(BoundaryBase):
 
         startDwell = self.getStartDwell()
 
-        # Compensate for tool offset 
-        toolOffset = self.param['toolOffset']
-        if toolOffset in ('inside', 'outside'):
+        # Cutter compensation  
+        cutterComp = self.param['cutterComp']
+        if cutterComp in ('inside', 'outside'):
             toolDiam = abs(float(self.param['toolDiam']))
-            if toolOffset == 'inside':
+            if cutterComp == 'inside':
                 width -= toolDiam
                 height -= toolDiam
-            elif toolOffset == 'outside':
+            elif cutterComp == 'outside':
                 width += toolDiam
                 height += toolDiam
         else:
-            if toolOffset is not None:
-                raise ValueError, 'uknown tool offset'.format(toolOffset)
+            if cutterComp is not None:
+                raise ValueError, 'uknown tool offset'.format(cutterComp)
 
 
         # Get list of rectPaths
@@ -168,13 +183,15 @@ class CircBoundaryXY(BoundaryBase):
         safeZ          = safe tool height 
         direction      = cut direction 'cw' or 'ccw'
         toolDiam       = tool diameter
-        toolOffset     = inside, outside, none
+        cutterComp     = inside, outside, none
         maxCutDepth    = maximum per pass cutting depth 
         startDwell     = dwell duration before start (optional)
         """
         super(CircBoundaryXY,self).__init__(param)
 
     def makeListOfCmds(self):
+
+        self.checkForDeprecatedParam()
 
         # Extract basic cutting parameters
         cx = float(self.param['centerX'])
@@ -190,16 +207,16 @@ class CircBoundaryXY(BoundaryBase):
         startAng = float(startAng)
 
         # Compensate for tool offset 
-        toolOffset = self.param['toolOffset']
-        if toolOffset in ('inside', 'outside'):
+        cutterComp = self.param['cutterComp']
+        if cutterComp in ('inside', 'outside'):
             toolDiam = abs(float(self.param['toolDiam']))
-            if toolOffset == 'inside':
+            if cutterComp == 'inside':
                 radius -= 0.5*toolDiam
-            elif toolOffset == 'outside':
+            elif cutterComp == 'outside':
                 radius += 0.5*toolDiam
         else:
-            if toolOffset is not None:
-                raise ValueError, 'uknown tool offset'.format(toolOffset)
+            if cutterComp is not None:
+                raise ValueError, 'uknown tool offset'.format(cutterComp)
 
         zPairsList = self.getZPairsList()
 
@@ -411,7 +428,7 @@ if __name__ == '__main__':
                 'startZ'       : 0.0,
                 'safeZ'        : 0.15,
                 'toolDiam'     : 0.25,
-                'toolOffset'   : 'outside',
+                'cutterComp'   : 'outside',
                 'direction'    : 'ccw',
                 'maxCutDepth'  : 0.03,
                 'startDwell'   : 2.0,
@@ -419,7 +436,7 @@ if __name__ == '__main__':
                 }
         boundary = RectBoundaryXY(param)
 
-    if 0:
+    if 1:
         param = { 
                 'centerX'      : 0.0,
                 'centerY'      : 0.0,
@@ -428,14 +445,14 @@ if __name__ == '__main__':
                 'startZ'       : 0.0,
                 'safeZ'        : 0.15,
                 'toolDiam'     : 0.25,
-                'toolOffset'   : 'outside',
+                'cutterComp'   : 'outside',
                 'direction'    : 'ccw',
                 'maxCutDepth'  : 0.03,
                 'startDwell'   : 2.0,
                 }
         boundary = CircBoundaryXY(param)
 
-    if 1:
+    if 0:
 
         pointList = [
                 (0,0),

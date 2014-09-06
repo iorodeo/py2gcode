@@ -77,29 +77,6 @@ class DxfDrill(DxfBase):
             drill = cnc_drill.SimpleDrill
         return drill 
 
-    #@property
-    #def sortedEntityList(self):
-    #    startEntity = self.getStartEntity()
-    #    startPt = self.getCenterPt(startEntity)
-
-    #def getStartEntity(self):
-    #    centerPtAndEntityList = [(self.getCenterPt(e), e) for e in self.entityList]
-    #    if 'X' in self.param['startCond']:
-    #        coordAndEntityList = [(pt[0], e) for pt, e in centerPtAndEntityList]
-    #    elif 'Y' in self.param['startCond']:
-    #        coordAndEntityList = [(pt[1], e) for pt, e in centerPtAndEntityList]
-    #    else:
-    #        raise ValueError, 'uknown start cond {0}'.format(self.param['startCond'])
-
-    #    if 'min' in self.param['startCond']:
-    #        opFunc = min
-    #    elif 'max' in self.param['startCond']:
-    #        opFunc = max
-    #    else:
-    #        raise ValueError, 'uknown start cond {0}'.format(self.param['startCond'])
-    #    startPt, startEntity = opFunc(coordAndEntityList) 
-    #    return startEntity
-
     def getCenterPt(self,entity):
         if entity.dxftype == 'POINT':
             centerPt = entity.point
@@ -537,7 +514,7 @@ if __name__ == '__main__':
         drill = DxfDrill(param)
         prog.add(drill)
 
-    if 0:
+    if 1:
         #fileName = os.path.join(dxfDir, 'circ_boundary_test0.dxf')
         fileName = os.path.join(dxfDir, 'circ_boundary_test1.dxf')
         param = {
@@ -547,7 +524,7 @@ if __name__ == '__main__':
                 'startZ'       : 0.0,
                 'safeZ'        : 0.15,
                 'toolDiam'     : 0.25,
-                'toolOffset'   : 'inside',
+                'cutterComp'   : 'inside',
                 'direction'    : 'ccw',
                 'maxCutDepth'  : 0.03,
                 'startDwell'   : 2.0,
@@ -593,7 +570,7 @@ if __name__ == '__main__':
         prog.add(pocket)
 
 
-    if 1:
+    if 0:
         fileName = os.path.join(dxfDir,'rect_extent_test1.dxf')
         param = {
                 'fileName'       : fileName,
