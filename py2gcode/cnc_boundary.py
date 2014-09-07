@@ -20,11 +20,8 @@ import math
 import gcode_cmd
 import cnc_path
 import cnc_routine
+import geom_utils
 import warnings
-from geom_utils import dist2D
-from geom_utils import midPoint2D
-from geom_utils import LineSegment
-from geom_utils import ArcSegment
 
 
 class BoundaryBase(cnc_routine.SafeZRoutine):
@@ -278,7 +275,7 @@ class LineSegBoundaryXY(BoundaryBase):
         startZ         = height at which to start cutting 
         safeZ          = safe tool height 
         toolDiam       = tool diameter
-        cutterComp     = left, right, inside, outside, none (NOT DONE)
+        cutterComp     = left, right, none (NOT DONE inside, outside)
         maxCutDepth    = maximum per pass cutting depth 
         startDwell     = dwell duration before start (optional)
         closed         = whether or not path is open or closed.
@@ -287,38 +284,28 @@ class LineSegBoundaryXY(BoundaryBase):
         super(LineSegBoundaryXY,self).__init__(param)
 
     def checkForSelfIntersect(self):
+        # --------------------------------------------------
+        # TODO - not done
+        # --------------------------------------------------
         pass
-
-    def getCutterCompLeadIn(self,p0,p1):
-        toolDiam = abs(float(self.param['toolDiam']))
-        x0, y0 = p0
-        x1, y1 = p1
-        moveLen = math.sqrt((x1-x0)**2 + (y1-y0)**2)
-        xNorm = (x1-x0)/moveLen 
-        yNorm = (y1-y0)/moveLen 
-        xLead = x0 - xNorm*toolDiam
-        yLead = y0 - yNorm*toolDiam
-        return xLead, yLead
 
     def makeListOfCmds(self):
         pointList = self.param['pointList']
         safeZ = float(self.param['safeZ'])
         startDwell = self.getStartDwell()
         toolDiam = abs(float(self.param['toolDiam']))
-
         cutterComp = self.param['cutterComp']
         if cutterComp is not None:
             if cutterComp not in ('inside', 'outside', 'left', 'right'):
                 raise ValueError('unknown cutter compensation value {0}'.format(cutterComp))
             if cutterComp in ('inside', 'outside'):
-                # TO DO
                 # ---------------------------------------------------------------------------
-                # Convert cutter comp to 'left' or 'right' based on line seg path
+                # TO DO - not done, convert 'inside'/'outside' to 'left'/'right'
                 # ---------------------------------------------------------------------------
                 raise RuntimeError('inside/outside cutter compensation not implemented yet')
 
         if self.param['closed']:
-            if dist2D(pointList[-1],pointList[0]) > self.param['ptEquivTol']:
+            if geom_utils.dist2D(pointList[-1],pointList[0]) > self.param['ptEquivTol']:
                 pointList.append(pointList[0])
         else:
             pointListRev = pointList[::-1]
@@ -356,7 +343,7 @@ class LineSegBoundaryXY(BoundaryBase):
         if cutterComp is not None:
             # Move back to leadin start 
             # Note, not great may need better criteria for selecting 2nd point 
-            xLead, yLead = self.getCutterCompLeadIn(pointList[0],pointList[1])
+            xLead, yLead = getCutterCompLeadIn(pointList[0],pointList[1],self.param['toolDiam'])
             self.addRapidMoveToPos(x=xLead,y=yLead, comment='cutterComp start move')
 
             # Add cutter compensation
@@ -384,7 +371,7 @@ class LineSegBoundaryXY(BoundaryBase):
         k = 2
         while pointList[-1] == pointList[-k]:
             k += 1
-        xLead, yLead = self.getCutterCompLeadIn(pointList[-1], pointList[-k])
+        xLead, yLead = getCutterCompLeadIn(pointList[-1], pointList[-k],self.param['toolDiam'])
         self.addRapidMoveToPos(x=xLead,y=yLead,comment='cancel cutter comp move')
         xEnd, yEnd = pointList[-1]
         self.addRapidMoveToPos(x=xEnd,y=yEnd,comment='cancel cutter comp move') 
@@ -399,12 +386,12 @@ class LineSegBoundaryXY(BoundaryBase):
         """
         p = pointList[0]
         n = 1
-        while dist2D(p,pointList[n]) < self.param['ptEquivTol']:
+        while geom_utils.dist2D(p,pointList[n]) < self.param['ptEquivTol']:
             n += 1
             if n == len(pointList):
                 raise RuntimeError('pointList - all points within ptEquivTol of each other')
         q = pointList[n]
-        distpq = dist2D(p,q)
+        distpq = geom_utils.dist2D(p,q)
         t = self.param['toolDiam']/distpq
         t = min([0.5,t])
         stubX = 0.5*(q[0] - p[0])*t + p[0]
@@ -432,7 +419,7 @@ class MixedSegBoundaryXY(BoundaryBase):
         startZ         = height at which to start cutting 
         safeZ          = safe tool height 
         toolDiam       = tool diameter
-        cutterComp     = left, right, inside, outside, none (NOT DONE)
+        cutterComp     = left, right, none (NOT DONE - outside, inside)
         maxCutDepth    = maximum per pass cutting depth 
         startDwell     = dwell duration before start (optional)
         closed         = whether or not path is open or closed.
@@ -441,11 +428,59 @@ class MixedSegBoundaryXY(BoundaryBase):
         super(MixedSegBoundaryXY,self).__init__(param)
 
     def makeListOfCmds(self):
-        pass
+        segList = self.param['segList']
+        safeZ = float(self.param['safeZ'])
+        startDwell = self.getStartDwell()
+        toolDiam = abs(float(self.param['toolDiam']))
+
+        cutterComp = self.param['cutterComp']
+        if cutterComp is not None:
+            if cutterComp not in ('inside', 'outside', 'left', 'right'):
+                raise ValueError('unknown cutter compensation value {0}'.format(cutterComp))
+            if cutterComp in ('inside', 'outside'):
+                # ---------------------------------------------------------------------------
+                # TO DO - not done, convert 'inside'/'outside' to 'left'/'right'
+                # ---------------------------------------------------------------------------
+                raise RuntimeError('inside/outside cutter compensation not implemented yet')
+
+        isContinuous = geom_utils.checkSegListContinuity(
+                segList,
+                closed=self.param['closed'],
+                ptEquivTol = self.param['ptEquivTol']
+                )
+
+        if not isContinuous:
+            raise RuntimeError('segList is not continuous')
+
+        if not self.param['closed']:
+            segListRev = geom_utils.reverseSegList(segList)
+            segList.extend(segListRev)
+
+        # ---------------------------------------------------------------------
+        # To Do need to finish MixedSegPath ...
+        # ---------------------------------------------------------------------
+
+
+
+# Utility functions
+# -----------------------------------------------------------------------------
+
+def getCutterCompLeadIn(p0,p1,toolDiam):
+    x0, y0 = p0
+    x1, y1 = p1
+    moveLen = math.sqrt((x1-x0)**2 + (y1-y0)**2)
+    xNorm = (x1-x0)/moveLen 
+    yNorm = (y1-y0)/moveLen 
+    xLead = x0 - xNorm*toolDiam
+    yLead = y0 - yNorm*toolDiam
+    return xLead, yLead
 
 
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
+
+    import matplotlib.pyplot as plt
+    from geom_utils import plotSegList
 
     # Devel Tests
 
@@ -473,7 +508,7 @@ if __name__ == '__main__':
                 }
         boundary = RectBoundaryXY(param)
 
-    if 1:
+    if 0:
         param = { 
                 'centerX'      : 0.0,
                 'centerY'      : 0.0,
@@ -539,6 +574,45 @@ if __name__ == '__main__':
                 'closed'      : False,
                 }
         boundary = LineSegBoundaryXY(param)
+
+    if 1:
+
+        closed = True 
+        plot = False 
+
+        if closed:
+            segList = [
+                geom_utils.LineSeg2D((0,0),(5,0)),
+                geom_utils.ArcSeg2D((5,2),2,3.0*math.pi/2.0,math.pi/2.0),
+                geom_utils.LineSeg2D((5,4),(0,4)),
+                geom_utils.ArcSeg2D((0,2),2,math.pi/2.0, 3.0*math.pi/2.0)
+                ]
+        else:
+            segList = [
+                geom_utils.LineSeg2D((0,0),(5,0)),
+                geom_utils.ArcSeg2D((5,2),2,3.0*math.pi/2.0,math.pi/2.0),
+                geom_utils.LineSeg2D((5,4),(0,4)),
+                ]
+
+        if plot:
+            fig = plt.figure()
+            geom_utils.plotSegList(segList)
+            plt.axis('equal')
+            plt.show()
+
+        param = {
+                'segList'      : segList,
+                'depth'        : 0.03,
+                'startZ'       : 0.0,
+                'safeZ'        : 0.15,
+                'toolDiam'     : 0.25,
+                'cutterComp'   : None,
+                'maxCutDepth'  : 0.03,
+                'startDwell'   : 2.0,
+                'closed'       : closed,
+                }
+        boundary = MixedSegBoundaryXY(param)
+
 
 
     prog.add(boundary)

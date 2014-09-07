@@ -24,12 +24,18 @@ except ImportError:
     havePlt = False
 
 
-
-class LineSeg(object):
+class LineSeg2D(object):
+    """
+    Simple 2D line segment
+    """
 
     def __init__(self,startPoint,endPoint): 
-        self.startPoint = startPoint
-        self.endPoint = endPoint
+        self.startPoint = float(startPoint[0]), float(startPoint[1])
+        self.endPoint = float(endPoint[0]), float(endPoint[1])
+
+    @property
+    def midPoint(self):
+        return midPoint2D(self.startPoint, self.endPoint)
 
     def plot(self,color=None):
         if havePlt:
@@ -39,14 +45,31 @@ class LineSeg(object):
                 color = 'b'
             plt.plot([x0,x1],[y0,y1],color=color)
 
+    def divideEqual(self,num):
+        """
+        Divide line segment into 'num' equal length segments 
+        """
+        # --------------------------------------------------
+        # TODO  - not done
+        # --------------------------------------------------
+        segList = []
+        return segList
 
-class ArcSeg(object):
+
+    def reverse(self):
+        return  LineSeg2D(self.endPoint, self.startPoint)
+
+
+class ArcSeg2D(object):
+    """
+    Simple 2D arc segment.
+    """
     
     def __init__(self,center,radius,startAngle,endAngle):
-        self.center = center
-        self.radius = radius
-        self.startAngle = startAngle
-        self.endAngle = endAngle
+        self.center = float(center[0]), float(center[1])
+        self.radius = float(radius)
+        self.startAngle = float(startAngle)
+        self.endAngle = float(endAngle)
         self.checkAngles()
 
     def checkAngles(self):
@@ -65,13 +88,15 @@ class ArcSeg(object):
 
     @property
     def startPoint(self):
-        pass
+        x = self.center[0] + self.radius*math.cos(self.startAngle)
+        y = self.center[1] + self.radius*math.sin(self.startAngle)
+        return x,y
 
     @property
     def endPoint(self):
-        pass
-
-
+        x = self.center[0] + self.radius*math.cos(self.endAngleAdj)
+        y = self.center[1] + self.radius*math.sin(self.endAngleAdj)
+        return x,y
 
     def convertToLineSegList(self, maxArcLen=1.0e-5):
         totalAngle = abs(self.endAngleAdj - self.startAngle)
@@ -84,9 +109,22 @@ class ArcSeg(object):
             y0 = self.center[1] + self.radius*math.sin(ang0)
             x1 = self.center[0] + self.radius*math.cos(ang1)
             y1 = self.center[1] + self.radius*math.sin(ang1)
-            lineSeg = LineSeg((x0,y0), (x1,y1))
+            lineSeg = LineSeg2D((x0,y0), (x1,y1))
             lineSegList.append(lineSeg)
         return lineSegList
+
+    def divideEqual(self,num):
+        """
+        Divide into 'num' equal length sub-arcs
+        """
+        # -------------------------------------------
+        # TODO - not done
+        # -------------------------------------------
+        segList = []
+        return segList
+
+    def reverse(self):
+        return ArcSeg2D(self.center, self.radius, self.endAngle, self.startAngle)
 
     def plot(self,color=None,maxArcLen=1.0e-2):
         if havePlt:
@@ -97,42 +135,33 @@ class ArcSeg(object):
                 lineSeg.plot(color=color)
 
 
-def checkSegListContinuity(segList,ptEquivtol=1.0e-5):
 
+# SegList functions
+# ------------------------------------------------------------------------------
+
+def checkSegListContinuity(segList,closed=False,ptEquivTol=1.0e-5):
+    test = True
     for segCurr, segNext in zip(segList[:-1], segList[1:]):
-        pass
+        if dist2D(segCurr.endPoint, segNext.startPoint) > ptEquivTol:
+            test = False
+            break
+    if closed:
+        segFirst = segList[0]
+        segLast = segList[-1]
+        if dist2D(segLast.endPoint, segFirst.startPoint) > ptEquivTol:
+            test = False
+    return test
+
+def reverseSegList(segList):
+    return [seg.reverse() for seg in segList[::-1]]
+
+def plotSegList(segList,color=None):
+    for seg in segList:
+        seg.plot(color=color)
 
 
-
-
-#def getDxfArcStartAndEndPts(arc): 
-#    xc = arc.center[0]
-#    yc = arc.center[1]
-#    r = arc.radius
-#    angStart = (math.pi/180.0)*arc.startangle
-#    angEnd = (math.pi/180.0)*arc.endangle
-#    if angEnd < angStart:
-#        angEnd += 2.0*math.pi 
-#    x0 = xc + r*math.cos(angStart)
-#    y0 = yc + r*math.sin(angStart)
-#    x1 = xc + r*math.cos(angEnd)
-#    y1 = yc + r*math.sin(angEnd)
-#    startPt = x0,y0
-#    endPt = x1,y1
-#    return startPt,endPt
-#
-#
-#def getEntityStartAndEndPts(entity):
-#    if entity.dxftype == 'LINE':
-#        startPt, endPt = entity.start[:2], entity.end[:2]
-#    elif entity.dxftype == 'ARC':
-#        startPt, endPt = getDxfArcStartAndEndPts(entity)
-#    else:
-#        raise ValueError('entity type not yet supported')
-#    return startPt, endPt
-
-
-            
+# Basic geometery
+# -----------------------------------------------------------------------------
 
 def dist2D(p,q):
     return math.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
@@ -144,14 +173,14 @@ def midPoint2D(p,q):
 if __name__ == '__main__':
 
     if 0:
-        lineSeg = LineSeg((0,0),(2,5))
+        lineSeg = LineSeg2D((0,0),(2,5))
         if havePlt:
             fig = plt.figure()
             lineSeg.plot()
             plt.show()
 
     if 1:
-        arcSeg = ArcSeg((0,0),2,math.pi/2.0,0.0)
+        arcSeg = ArcSeg2D((0,0),2,math.pi/2.0,0.0)
         if havePlt:
             fig = plt.figure()
             arcSeg.plot()

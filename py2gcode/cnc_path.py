@@ -674,6 +674,16 @@ class LineSegPath(gcode_cmd.GCodeProg):
             self.listOfCmds.append(linearFeed)
 
 
+class MixedSegPath(gcode_cmd.GCodeProg):
+
+    # -----------------------------------------------------------
+    # TODO - not done yet
+    # -----------------------------------------------------------
+
+    def __init__(self,segList,closed=False,plane='xy',helix=None):
+        pass
+
+
 
 # Utility functions
 # -----------------------------------------------------------------------------
