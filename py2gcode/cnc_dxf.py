@@ -155,7 +155,7 @@ class DxfRectPocketFromExtent(DxfBase):
             elif entity.dxftype == 'POINT':
                 coordList.append(entity.point[:2])
             else:
-                raise ValueError, 'dxftype {0} not supported yet'.format(entity.dxftype)
+                raise RuntimeError('dxftype {0} not supported yet'.format(entity.dxftype))
 
         # Get x and y coordinates max and min values
         xCoordList = [p[0] for p in coordList]
@@ -241,13 +241,13 @@ class DxfBoundary(DxfBase):
                 self.listOfCmds.extend(listOfCmds)
             else:
                 errorMsg = 'sub-graph has nodes with degree 0'
-                raise ValueError, errorMsg
+                raise RuntimeError(errorMsg)
             
 
     def makeCmdsForLineString(self,graph):
         if self.param['cutterComp'] is not None:
             errorMsg = 'cutterComp must be None for line string graphs'
-            raise ValueError, errorMsg
+            raise RuntimeError(errorMsg)
 
         # Get start and end  node based on startCond.
         endNodeList = [n for n in graph if graph.degree(n) == 1]
@@ -256,7 +256,7 @@ class DxfBoundary(DxfBase):
         elif self.param['startCond'] in ('minY', 'maxY'):
             endCoordAndNodeList = [(graph.node[n]['coord'][1],n)  for n in endNodeList]
         else:
-            raise ValueError, 'unknown startCond {0}'.format(self.param['startCond'])
+            raise ValueError('unknown startCond {0}'.format(self.param['startCond']))
         endCoordAndNodeList.sort()
         if 'min' in  self.param['startCond']:
             startNode = endCoordAndNodeList[0][1]
@@ -283,7 +283,7 @@ class DxfBoundary(DxfBase):
         elif self.param['startCond'] in ('minY', 'maxY'):
             coordAndNodeList = [(graph.node[n]['coord'][1], n) for n in graph]
         else:
-            raise ValueError, 'unknown startCond {0}'.format(self.param['startCond'])
+            raise ValueError('unknown startCond {0}'.format(self.param['startCond']))
         coordAndNodeList.sort()
         if 'min' in self.param['startCond']:
             startNode = coordAndNodeList[0][1]
@@ -302,7 +302,7 @@ class DxfBoundary(DxfBase):
         # Test for self instersections and if none orient closed loop for cutting direction
         if not lineString.is_simple:
             if self.param['cutterComp'] is not None:
-                raise ValueError, 'cutterComp is not allowed for non-simple closed loops'
+                raise RuntimeError('cutterComp is not allowed for non-simple closed loops')
             cutterComp = None
         else:
             linearRing = polygon.LinearRing(closedPathCoord)
@@ -339,7 +339,7 @@ class DxfBoundary(DxfBase):
             boundary = cnc_boundary.LineSegBoundaryXY(param)
             listOfCmds = boundary.listOfCmds
         else:
-            raise ValueError, 'convertArcs=False not supported yet'
+            raise RuntimeError('convertArcs=False not supported yet')
 
         #xList = [p[0] for p in pointList]
         #yList = [p[1] for p in pointList]
@@ -359,12 +359,12 @@ class DxfBoundary(DxfBase):
                 segList.append((startCoord, endCoord))
             else: 
                 if self.param['convertArcs']:
-                    arcSegList = self.convertArcToLineList(edgeEntity)
+                    arcSegList = self.convertDxfArcToLineList(edgeEntity)
                     if dist2D(arcSegList[0][0],startCoord) > self.param['ptEquivTol']:
                         arcSegList = [(y,x) for x,y in arcSegList[::-1]]
                     segList.extend(arcSegList)
                 else:
-                    raise ValueError, 'convertArcs=False not supported yet'
+                    raise RuntimeError('convertArcs=False not supported yet')
         return segList
 
 
@@ -375,12 +375,12 @@ class DxfBoundary(DxfBase):
                 line = entity.start[:2], entity.end[:2]
                 lineList.append(line)
             else:
-                arcLineList = self.convertArcToLineList(entity)
+                arcLineList = self.convertDxfArcToLineList(entity)
                 lineList.extend(arcLineList)
         return lineList
     
 
-    def convertArcToLineList(self,arc):
+    def convertDxfArcToLineList(self,arc):
         xc = arc.center[0]
         yc = arc.center[1]
         r = arc.radius
@@ -467,7 +467,7 @@ def getEntityStartAndEndPts(entity):
     elif entity.dxftype == 'ARC':
         startPt, endPt = getDxfArcStartAndEndPts(entity)
     else:
-        raise ValueError, 'entity type not yet supported'
+        raise RuntimeError('entity type not yet supported')
     return startPt, endPt
 
 

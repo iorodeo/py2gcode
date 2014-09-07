@@ -85,7 +85,7 @@ class SurfaceRasterXZ(SurfaceBase):
         startDwell = self.getStartDwell()
 
         if minimumX >= maximumX:
-            raise ValueError, 'minimumY must be < maximumY'
+            raise ValueError('minimumY must be < maximumY')
 
         # Get y position compensated for side and tool diameter 
         if side == '+':
@@ -95,7 +95,7 @@ class SurfaceRasterXZ(SurfaceBase):
             yCut = positionY - 0.5*toolDiam 
             yRet = positionY - 0.5*toolDiam - returnDist 
         else:
-            raise ValueError, 'unknown side {0}'.format(side)
+            raise ValueError('unknown side {0}'.format(side))
 
         # Start and stop x and z points based on cut direction
         if cutDirection == '+':
@@ -103,9 +103,9 @@ class SurfaceRasterXZ(SurfaceBase):
         elif cutDirection == '-':
             x0, x1 = maximumX, minimumX
         elif cutDirection in ('+-', '-+'):
-            raise ValueError, 'bidirectional cutting not supported yet'
+            raise RuntimeError('bidirectional cutting not supported yet')
         else:
-            raise ValueError, 'uknown cutting direction {0}'.format(cutDirection)
+            raise ValueError('uknown cutting direction {0}'.format(cutDirection))
         z0 = startZ
         z1 = startZ - depth
         point0 = x0, z0
@@ -180,7 +180,7 @@ class SurfaceRasterYZ(SurfaceBase):
         startDwell = self.getStartDwell()
 
         if minimumY >= maximumY:
-            raise ValueError, 'minimumY must be < maximumY'
+            raise ValueError('minimumY must be < maximumY')
 
         # Get x position compensated for side and tool diameter 
         if side == '+':
@@ -190,7 +190,7 @@ class SurfaceRasterYZ(SurfaceBase):
             xCut = positionX - 0.5*toolDiam 
             xRet = positionX - 0.5*toolDiam - returnDist 
         else:
-            raise ValueError, 'unknown side {0}'.format(side)
+            raise ValueError('unknown side {0}'.format(side))
 
         # Start and stop y and z points based on cut direction
         if cutDirection == '+':
@@ -198,9 +198,9 @@ class SurfaceRasterYZ(SurfaceBase):
         elif cutDirection == '-':
             y0, y1 = maximumY, minimumY
         elif cutDirection in ('+-', '-+'):
-            raise ValueError, 'bidirectional cutting not supported yet'
+            raise RuntimeError('bidirectional cutting not supported yet')
         else:
-            raise ValueError, 'uknown cutting direction {0}'.format(cutDirection)
+            raise ValueError('uknown cutting direction {0}'.format(cutDirection))
         z0 = startZ
         z1 = startZ - depth
         point0 = y0, z0

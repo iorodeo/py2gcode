@@ -59,11 +59,11 @@ class RectPath(gcode_cmd.GCodeProg):
         self.radius = radius
         if self.radius is not None:
             if self.radius < 0:
-                raise ValueError, 'radius must >= 0'
+                raise ValueError('radius must >= 0')
             dx = abs(point1[0] - point0[0])
             dy = abs(point1[1] - point0[1])
             if self.radius > 0.5*min([dx,dy]):
-                raise ValueError, 'corner radius is too large'
+                raise ValueError('corner radius is too large')
             if self.radius < MINIMUM_RADIUS:
                 self.radius = None
         self.helix = helix
@@ -89,7 +89,7 @@ class RectPath(gcode_cmd.GCodeProg):
             point0 = (centerX - 0.5*width, centerY + 0.5*height)
             point1 = (centerX + 0.5*width, centerY - 0.5*height)
         else:
-            raise ValueError, 'unknown direction {0}'.format(direction)
+            raise ValueError('unknown direction {0}'.format(direction))
         return point0, point1
 
     def getPathPointList2D(self):
@@ -597,7 +597,7 @@ class LineSegPath(gcode_cmd.GCodeProg):
         self.plane = plane
         self.helix = helix
         if (self.helix is not None) and self.pointListDim == 3:
-            raise ValueError, 'points must be 2d is helix is given'
+            raise ValueError('points must be 2d if helix is given')
         self.makeListOfCmds()
 
     def getPointListDim(self,pointList):
@@ -613,7 +613,7 @@ class LineSegPath(gcode_cmd.GCodeProg):
         elif is3d:
             return 3
         else:
-            raise ValueError, 'dimensions of points must be all either 2 or 3'
+            raise ValueError('dimensions of points must be all either 2 or 3')
 
     def getStartPoint(self):
         pointListMod = self.getModifiedPointList()
@@ -707,44 +707,44 @@ def checkFilledRectStep(point0,point1,step):
     xLen = abs(x1-x0)
     yLen = abs(y1-y0)
     if xLen > 0 and step > xLen:
-        raise ValueError, 'step size too large'
+        raise ValueError('step size too large')
     if xLen > 0 and step > yLen:
-        raise ValueError, 'step size too large'
+        raise ValueError('step size too large')
 
 def checkFilledCircStep(radius,step):
     """
     Checks that the step size is small enough for filled circular paths.
     """
     if step > 2*radius:
-        raise ValueError, 'step size > radius'
+        raise ValueError('step size > radius')
 
 def checkCircPathAng(ang):
     """
     Checks validity of cirular path angle argument.
     """
     if not ang[0] < ang[1]: 
-        raise ValueError, 'initial angle must be < final angle'
+        raise ValueError('initial angle must be < final angle')
 
 def checkCircPathTurns(turns):
     """
     Checks the validity of the turns argument for circular  paths.
     """
     if int(turns) < 1:
-        raise ValueError, 'number of turns must >= 1'
+        raise ValueError('number of turns must >= 1')
 
 def checkPlane(plane): 
     """
     check that plane is in list of allowed planes
     """
     if not plane in PLANE_COORD: 
-        raise ValueError, 'unknown plane {0}'.format(plane)
+        raise ValueError('unknown plane {0}'.format(plane))
 
 def checkDirection(direction,plane):
     """
     Check that the direction is allowed given the plane
     """
     if direction not in PLANE_COORD[plane]:
-        raise ValueError, 'uknown direction {0} in plane {1}'.format(direction,plane)
+        raise ValueError('uknown direction {0} in plane {1}'.format(direction,plane))
 
 
 def getCoordOrder(direction,plane):
@@ -762,7 +762,7 @@ def checkHelicalDirection(direction):
     Check that helical direction is allowed
     """
     if direction not in HELICAL_DIRECTIONS:
-            raise ValueError, 'uknown helical direction {0}'.format(direction)
+            raise ValueError('uknown helical direction {0}'.format(direction))
 
 def getBiDirRasterRect(point0,point1,step,keys=('x','y')):
     """

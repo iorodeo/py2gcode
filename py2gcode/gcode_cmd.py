@@ -126,7 +126,7 @@ class GCodeAxisArgCmd(GCodeCmd):
         super(GCodeAxisArgCmd,self).__init__()
         self.motionDict = normalizeToKwargs(self.axisNames,args,kwargs)
         if not [ v for k, v in self.motionDict.iteritems() if v is not None]:
-            raise ValueError, 'missing commands'
+            raise RuntimeError('missing commands')
 
     def getCmdList(self):
         cmdList = super(GCodeAxisArgCmd,self).getCmdList()
@@ -150,7 +150,7 @@ class GCodeHelicalMotion(GCodeCmd):
         elif self.direction == 'ccw':
             self.code = 'G3'
         else:
-            raise ValueError, 'unknown dirction {0}'.format(direction)
+            raise ValueError('unknown dirction {0}'.format(direction))
         self.motionDict = kwargs
 
         # Make sure we have at least one of the required arguments
@@ -159,7 +159,7 @@ class GCodeHelicalMotion(GCodeCmd):
             if k in kwargs:
                 test = True
         if not test:
-            raise ValueError, 'missing required key: {0}'.format(self.requiredKeys)
+            raise RuntimeError('missing required key: {0}'.format(self.requiredKeys))
 
 
     def getCmdList(self):
@@ -304,7 +304,7 @@ class QuadraticBSplineXY(GCodeCmd):
         kwargs = normalizeToKwargs(self.kwargsKeys,args,kwargs)
         for k in self.kwargsKeys:
             if k not in kwargs:
-                raise ValueError, 'missing required argument {0}'.format(k)
+                raise RuntimeError('missing required argument {0}'.format(k))
         super(QuadraticBSplineXY,self).__init__()
         self.code = 'G5.1'
         self.commentStr = 'Quadratic B-Spline'
@@ -387,7 +387,7 @@ class PeckDrillCycle(DrillCycleBase):
         """
         super(PeckDrillCycle,self).__init__(*args,**kwargs)
         if self.params['q'] <= 0:
-            raise ValueError, 'increment q must be >= 0'
+            raise ValueError('increment q must be >= 0')
         self.code = 'G83'
         
 
@@ -520,11 +520,11 @@ class CutterCompensation(GCodeCmd):
         elif self.side == 'right':
             self.code = 'G42'
         else:
-            raise ValueError, "side must be either 'left' or 'right'"
+            raise ValueError("side must be either 'left' or 'right'")
         self.diameter = diameter
         self.toolNumber = toolNumber
         if (self.diameter is not None) and (self.toolNumber is not None):
-            raise ValueError, "diameter and toolNumber cannot both be defined"
+            raise RuntimeError("diameter and toolNumber cannot both be defined")
         if self.diameter is not None:
             self.code = '{0}.1'.format(self.code)
             self.commentStr = 'Added dynamic cutter radius compensation, {0}'.format(self.side)
@@ -573,7 +573,7 @@ class Units(GCodeCmd):
             self.code = 'G21'
             self.commentStr = 'Set units to millimeter'
         else:
-            raise ValueError, 'uknown unit {0}'.format(unitStr)
+            raise ValueError('uknown unit {0}'.format(unitStr))
 
 class Inches(Units):
 
@@ -671,7 +671,7 @@ class PathBlendMode(GCodeCmd):
     def __init__(self,*args,**kwargs):
         kwargs = normalizeToKwargs(self.kwargsKeys,args,kwargs)
         if (kwargs['q'] is not None) and (kwargs['p'] is None):
-            raise ValueError, 'naive cam tolerance q speficed with out tolerance p'
+            raise RuntimeError('naive cam tolerance q speficed with out tolerance p')
         super(PathBlendMode,self).__init__()
         self.params = kwargs
         self.code = 'G64'
@@ -700,7 +700,7 @@ class CannedCycleReturnMode(GCodeCmd):
     def __init__(self,mode):
         super(CannedCycleReturnMode,self).__init__()
         if mode.lower() not in self.modeDict:
-            raise ValueError, 'unknown canned cycle return mode {0}'.format(mode)
+            raise ValueError('unknown canned cycle return mode {0}'.format(mode))
         self.mode = mode.lower()
         self.code = self.modeDict[self.mode]
         self.commentStr = self.commentDict[self.mode]
@@ -812,7 +812,7 @@ def normalizeToKwargs(expectedKeys,argsTuple,kwargsDict):
     kwargsDictNorm = dict([(k,None) for k in expectedKeys])
     if argsTuple and kwargsDict: 
         errMsg = 'mixed argument types - must be either positional of keyword'
-        raise ValueError, errMsg
+        raise RuntimeError(errMsg)
     if argsTuple:
         kwargsDict = dict(zip(expectedKeys,argsTuple))
     kwargsDictNorm.update(kwargsDict)
@@ -822,7 +822,7 @@ def normalizeToKwargs(expectedKeys,argsTuple,kwargsDict):
 def checkRequiredKwargs(requiredKeys,kwargsDict): 
     for k in requiredKeys: 
         if kwargsDict[k] is None: 
-            raise ValueError, 'missing value for parameter {0}'.format(k)
+            raise RuntimeError('missing value for parameter {0}'.format(k))
 
 
 # -----------------------------------------------------------------------------

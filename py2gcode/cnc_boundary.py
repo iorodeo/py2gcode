@@ -125,8 +125,7 @@ class RectBoundaryXY(BoundaryBase):
                 height += toolDiam
         else:
             if cutterComp is not None:
-                raise ValueError, 'uknown tool offset'.format(cutterComp)
-
+                raise ValueError('uknown tool offset'.format(cutterComp))
 
         # Get list of rectPaths
         zPairsList = self.getZPairsList()
@@ -219,7 +218,7 @@ class CircBoundaryXY(BoundaryBase):
                 radius += 0.5*toolDiam
         else:
             if cutterComp is not None:
-                raise ValueError, 'uknown tool offset'.format(cutterComp)
+                raise ValueError('uknown tool offset'.format(cutterComp))
 
         zPairsList = self.getZPairsList()
 
@@ -310,13 +309,13 @@ class LineSegBoundaryXY(BoundaryBase):
         cutterComp = self.param['cutterComp']
         if cutterComp is not None:
             if cutterComp not in ('inside', 'outside', 'left', 'right'):
-                raise ValueError, 'unknown cutter compensation value {0}'.format(cutterComp)
+                raise ValueError('unknown cutter compensation value {0}'.format(cutterComp))
             if cutterComp in ('inside', 'outside'):
                 # TO DO
                 # ---------------------------------------------------------------------------
                 # Convert cutter comp to 'left' or 'right' based on line seg path
                 # ---------------------------------------------------------------------------
-                raise ValueError, 'inside/outside cutter compensation not implemented yet'
+                raise RuntimeError('inside/outside cutter compensation not implemented yet')
 
         if self.param['closed']:
             if dist2D(pointList[-1],pointList[0]) > self.param['ptEquivTol']:
@@ -403,7 +402,7 @@ class LineSegBoundaryXY(BoundaryBase):
         while dist2D(p,pointList[n]) < self.param['ptEquivTol']:
             n += 1
             if n == len(pointList):
-                raise ValueError, 'pointList - all points within ptEquivTol of each other'
+                raise RuntimeError('pointList - all points within ptEquivTol of each other')
         q = pointList[n]
         distpq = dist2D(p,q)
         t = self.param['toolDiam']/distpq

@@ -381,9 +381,9 @@ class CircPocketXY(cnc_routine.SafeZRoutine):
 
         # Check params
         if overlap < 0.0 or overlap >= 1.0: 
-            raise ValueError, 'overlap must >=0 and < 1'
+            raise ValueError('overlap must >=0 and < 1')
         if 2*radius <= toolDiam: 
-            raise ValueError, 'circle diameter must be > tool diameter'
+            raise ValueError('circle diameter must be > tool diameter')
 
         # Get circle cutting parameters  - assumes startAngle=0
         adjustedRadius = radius - 0.5*toolDiam
@@ -508,13 +508,13 @@ class CircAnnulusPocketXY(cnc_routine.SafeZRoutine):
 
         # Check params
         if overlap < 0.0 or overlap >= 1.0: 
-            raise ValueError, 'overlap must >=0 and < 1'
+            raise ValueError('overlap must >=0 and < 1')
         if 2*radius <= toolDiam: 
-            raise ValueError, 'circle diameter must be > tool diameter'
+            raise ValueError('circle diameter must be > tool diameter')
         if thickness > radius:
-            raise ValueError, 'thickness must be <= radius'
+            raise ValueError('thickness must be <= radius')
         if toolDiam > thickness:
-            raise ValueError, 'toolDiam must be <= thickness'
+            raise ValueError('toolDiam must be <= thickness')
 
         # Get circle cutting parameters  - assumes startAngle=0
         adjustedRadius = radius - 0.5*toolDiam
