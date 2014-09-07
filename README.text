@@ -1,6 +1,5 @@
-py2gcode
-
-Python library for generating gcode.  Still a work in progress.
+py2gcode - python library for generating gcode.  Functional, but still a work
+in progress.
 
 Example:
 
