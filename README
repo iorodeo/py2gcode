@@ -1,0 +1,37 @@
+py2gcode
+
+Python library for generating gcode.  Still a work in progress.
+
+Example:
+
+    :::Python
+
+        from py2gcode import gcode_cmd
+        from py2gcode import cnc_dxf
+        
+        prog = gcode_cmd.GCodeProg()
+        prog.add(gcode_cmd.GenericStart())
+        prog.add(gcode_cmd.Space())
+        prog.add(gcode_cmd.FeedRate(120))
+        
+        param = {
+                'fileName'    : 'my_file.dxf',
+                'layers'      : ['boundary'],
+                'depth'       : 0.3,
+                'startZ'      : 0.0, 
+                'safeZ'       : 0.5, 
+                'toolDiam'    : 0.25,
+                'direction'   : 'ccw', 
+                'cutterComp'  : 'outside',
+                'maxCutDepth' : 0.05,
+                'startDwell'  : 0.2,
+                'startCond'   : 'minX',
+                'maxArcLen'   : 1.0e-2, 
+                'ptEquivTol'  : 1.0e-5, 
+                }
+        boundary = cnc_dxf.DxfBoundary(param)
+        prog.add(boundary)
+        
+        prog.add(gcode_cmd.Space())
+        prog.add(gcode_cmd.End(),comment=True)
+        prog.write('my_gcode.ngc')
