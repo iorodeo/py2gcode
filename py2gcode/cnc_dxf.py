@@ -177,7 +177,10 @@ class DxfRectPocketFromExtent(DxfBase):
         pocketParam['centerY'] = centerY
         pocketParam['width'] = width
         pocketParam['height'] = height
-        pocket = cnc_pocket.RectPocketXY(pocketParam)
+        if 'thickness' in pocketParam:
+            pocket = cnc_pocket.RectAnnulusPocketXY(pocketParam)
+        else:
+            pocket = cnc_pocket.RectPocketXY(pocketParam)
         return pocket.listOfCmds 
 
 
