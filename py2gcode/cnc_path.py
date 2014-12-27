@@ -19,6 +19,7 @@ from __future__ import print_function
 import math
 import gcode_cmd  
 import pylab
+import geom_utils
 
 # Constants
 # ----------------------------------------------------------------------------------
@@ -443,7 +444,7 @@ class UniDirRasterRectPath(gcode_cmd.GCodeProg):
 
 class CircArcPath(gcode_cmd.GCodeProg):
 
-    def __init__(self, center, radius, ang=(0.0,360.0), plane='xy',direction='cw',helix=None):
+    def __init__(self,center,radius,ang=(0.0,360.0),plane='xy',direction='cw',helix=None,includeFeedToStart=True):
         """
         Generates a circular arc path with given center and radius. 
         
@@ -460,7 +461,7 @@ class CircArcPath(gcode_cmd.GCodeProg):
 
         """
         super(CircArcPath,self).__init__()
-        checkCircPathAng(ang)
+        #checkCircPathAng(ang)
         checkPlane(plane)
         checkHelicalDirection(direction)
 
@@ -472,8 +473,10 @@ class CircArcPath(gcode_cmd.GCodeProg):
         self.helix = helix
         if self.helix is not None:
             self.helix = float(helix[0]), float(helix[1])
+        self.includeFeedToStart = includeFeedToStart
 
         self.makeListOfCmds()
+
 
     def getStartPoint(self):
         angRad = self.getAngRad()
@@ -494,15 +497,13 @@ class CircArcPath(gcode_cmd.GCodeProg):
         x1 = cx + r*math.cos(angRad[1])
         y1 = cy + r*math.sin(angRad[1])
         if self.helix is not None:
-            pt = x0, y0, self.helix[1]
+            pt = x1, y1, self.helix[1]
         else:
-            pt = x0, y0
+            pt = x1, y1
         return pt
 
     def getAngRad(self):
         angRad = tuple([math.pi*val/180.0 for val in self.ang])
-        if self.direction == 'cw':
-            angRad = [-val for val in angRad]
         return angRad
 
     def getNumTurns(self):
@@ -515,7 +516,7 @@ class CircArcPath(gcode_cmd.GCodeProg):
         kz = PLANE_NORM_COORD[self.plane] 
         cx, cy = self.center
         x0, y0 = self.getStartPoint()[:2]
-        x1, y1 = self.getStartPoint()[:2]
+        x1, y1 = self.getStopPoint()[:2]
         turns = self.getNumTurns()
 
         # Get helix motion class based on plane
@@ -524,10 +525,11 @@ class CircArcPath(gcode_cmd.GCodeProg):
         self.listOfCmds = []
 
         # Add linear feed to start position
-        linearFeedArgs = {kx:x0, ky:y0}
-        if self.helix is not None:
-            linearFeedArgs[kz] = self.helix[0]
-        self.listOfCmds.append(gcode_cmd.LinearFeed(**linearFeedArgs))
+        if self.includeFeedToStart:
+            linearFeedArgs = {kx:x0, ky:y0}
+            if self.helix is not None:
+                linearFeedArgs[kz] = self.helix[0]
+            self.listOfCmds.append(gcode_cmd.LinearFeed(**linearFeedArgs))
 
         # Add helical motion feed
         helixFeedArgs = {kx:x1, ky:y1, ki:cx-x0, kj:cy-y0, 'd':self.direction}
@@ -592,7 +594,7 @@ class LineSegPath(gcode_cmd.GCodeProg):
     def __init__(self, pointList, closed=False, plane='xy', helix=None):
         checkPlane(plane)
         self.pointList = pointList
-        self.pointListDim = self.getPointListDim(pointList) 
+        self.pointListDim = self.getPointListDim() 
         self.closed = closed
         self.plane = plane
         self.helix = helix
@@ -600,10 +602,10 @@ class LineSegPath(gcode_cmd.GCodeProg):
             raise ValueError('points must be 2d if helix is given')
         self.makeListOfCmds()
 
-    def getPointListDim(self,pointList):
+    def getPointListDim(self):
         is2d = True
         is3d = True
-        for p in pointList:
+        for p in self.pointList:
             if len(p) != 2:
                 is2d = False
             if len(p) != 3:
@@ -680,8 +682,41 @@ class MixedSegPath(gcode_cmd.GCodeProg):
     # TODO - not done yet
     # -----------------------------------------------------------
 
-    def __init__(self,segList,closed=False,plane='xy',helix=None):
-        pass
+    def __init__(self,segList,closed=False,plane='xy',helix=None,ptEquivTol=1.0e-5):
+        checkPlane(plane)
+        self.segList = segList
+        self.closed = closed
+        self.plane = plane
+        self.helix = helix
+        self.segListDim = geom_utils.getSegListDim(segList)
+        if self.segListDim is None:
+            raise ValueError, 'segment list must either 2d or 3d'
+        if not geom_utils.checkSegListContinuity(self.segList,self.closed,ptEquivTol):
+            raise ValueError, 'segment list is not continuous'
+        if self.hasHelix and self.segListDim == 3:
+            raise ValueError('points must be 2d if helix is given')
+        self.makeListOfCmds()
+
+    @property
+    def hasHelix(self):
+        return self.helix is not None
+
+    def makeListOfCmds(self):
+        self.listOfCmds = []
+        if self.segListDim == 2:
+            if self.hasHelix:
+                totalXYPathLen = geom_utils.getSegListLength(self.segList)
+                raise RuntimeError, 'helix option not yet implemented'
+            else:
+                for i, seg in enumerate(segList):
+                    if i == 0:
+                        self.listOfCmds.append(seg.getFeedToStartCmd())
+                    self.listOfCmds.append(seg.getFeedCmd())
+        else:
+            raise RuntimeError, '3D segment lists not yet supported'
+
+
+
 
 
 
@@ -728,12 +763,12 @@ def checkFilledCircStep(radius,step):
     if step > 2*radius:
         raise ValueError('step size > radius')
 
-def checkCircPathAng(ang):
-    """
-    Checks validity of cirular path angle argument.
-    """
-    if not ang[0] < ang[1]: 
-        raise ValueError('initial angle must be < final angle')
+#def checkCircPathAng(ang):
+#    """
+#    Checks validity of cirular path angle argument.
+#    """
+#    if not ang[0] < ang[1]: 
+#        raise ValueError('initial angle must be < final angle')
 
 def checkCircPathTurns(turns):
     """
@@ -893,12 +928,15 @@ def getDirFromPts(p0,p1,p2):
 # -----------------------------------------------------------------------------
 if __name__ == '__main__':
 
+    import matplotlib.pyplot as plt
+    from geom_utils import plotSegList
+
     # Test program
     prog = gcode_cmd.GCodeProg()
 
     prog.add(gcode_cmd.GenericStart())
     prog.add(gcode_cmd.Space())
-    prog.add(gcode_cmd.FeedRate(100.0))
+    prog.add(gcode_cmd.FeedRate(500.0))
     prog.add(gcode_cmd.Space())
 
     if 0:
@@ -1097,8 +1135,7 @@ if __name__ == '__main__':
 
         center = 0,0
         radius = 1
-        ang = 45,2*360+45
-        #ang = 0,2*360
+        ang = 10, 120 
         direction = 'ccw'
         plane = 'xy'
         prog.add(gcode_cmd.Comment('CircArcPath'))
@@ -1161,7 +1198,7 @@ if __name__ == '__main__':
                 )
         prog.add(filledCircPath)
 
-    if 1:
+    if 0:
         pointList = [
                 (0,0),
                 (2,0),
@@ -1176,9 +1213,35 @@ if __name__ == '__main__':
         closed = True
         plane = 'xy'
         helix = (0,-0.5)
-        polyPath = LineSegPath(pointList,closed=closed,plane=plane,helix=helix)
-        prog.add(polyPath)
+        path = LineSegPath(pointList,closed=closed,plane=plane,helix=helix)
+        prog.add(path)
 
+    if 1:
+        closed = True 
+        plot = False 
+        if closed:
+            segList = [
+                geom_utils.LineSeg2D((0,0),(5,0)),
+                geom_utils.ArcSeg2D((5,2),2,3.0*math.pi/2.0,math.pi/2.0,'ccw'),
+                geom_utils.LineSeg2D((5,4),(0,4)),
+                geom_utils.ArcSeg2D((0,2),2,math.pi/2.0, 3.0*math.pi/2.0,'ccw')
+                ]
+        else:
+            segList = [
+                geom_utils.LineSeg2D((0,0),(5,0)),
+                geom_utils.ArcSeg2D((5,2),2,3.0*math.pi/2.0,math.pi/2.0,'ccw'),
+                geom_utils.LineSeg2D((5,4),(0,4)),
+                ]
+        if plot:
+            fig = plt.figure()
+            geom_utils.plotSegList(segList)
+            plt.axis('equal')
+            plt.show()
+
+        plane = 'xy'
+        helix = None
+        path = MixedSegPath(segList, closed=closed, plane=plane, helix=helix)
+        prog.add(path)
 
 
     prog.add(gcode_cmd.Space())

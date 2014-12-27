@@ -578,7 +578,7 @@ if __name__ == '__main__':
     if 1:
 
         closed = True 
-        plot = False 
+        plot = True 
 
         if closed:
             segList = [

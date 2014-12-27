@@ -219,7 +219,7 @@ class HelicalMotionXY(GCodeHelicalMotion):
 
         d = 'cw' for 'ccw'
         x = (optional) x end position
-        y = (optional) y end positino
+        y = (optional) y end position
         z = (optional) z end position helical motion
         i = x offset
         j = y offset
