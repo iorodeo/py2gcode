@@ -29,6 +29,20 @@ TAIG_BELT_POS_TO_RPM = {
         'F': 10500.0,
         }
 
+
+def getBosch1617Setting(rpm):
+    """
+    Get bosch 1617 router setting for given rmp.
+    """
+    minSetting = 1.0
+    maxSetting = 6.0
+    minSpeed = 8000.0
+    maxSpeed = 25000.0
+    slope = (maxSetting - minSetting)/(maxSpeed - minSpeed)
+    offset = minSetting - slope*minSpeed
+    return slope*rpm + offset
+   
+
 def getSFM(rpm, toolDiam):
     """
     Calculates the surface feet per minute
@@ -87,63 +101,67 @@ if __name__ == '__main__':
 
 
     
-    sfm = 500
-    toolDiam = 0.25
-    rpm = getRPM(sfm, toolDiam)
+    if 0:
+        sfm = 500
+        toolDiam = 0.25
+        rpm = getRPM(sfm, toolDiam)
 
-    print()
-    print('test getRPM')
-    print('-'*40)
-    print('SFM:      ', sfm)
-    print('toolDiam: ', toolDiam)
-    print()
-    print('RPM:      ', rpm)
-    print()
-    print()
+        print()
+        print('test getRPM')
+        print('-'*40)
+        print('SFM:      ', sfm)
+        print('toolDiam: ', toolDiam)
+        print()
+        print('RPM:      ', rpm)
+        print()
+        print()
 
-    rpm = TAIG_BELT_POS_TO_RPM['C'] 
-    chipLoad = 0.003
-    numTeeth = 2
-    feedRate = getFeedRate(rpm, chipLoad, numTeeth)
-    print('test getFeedRate')
-    print('-'*40)
-    print('RPM:      ', rpm)
-    print('chipLoad: ', chipLoad)
-    print('numTeeth: ', numTeeth)
-    print()
-    print('feedRate: ', feedRate)
-    print()
-    print()
+        rpm = TAIG_BELT_POS_TO_RPM['C'] 
+        chipLoad = 0.003
+        numTeeth = 2
+        feedRate = getFeedRate(rpm, chipLoad, numTeeth)
+        print('test getFeedRate')
+        print('-'*40)
+        print('RPM:      ', rpm)
+        print('chipLoad: ', chipLoad)
+        print('numTeeth: ', numTeeth)
+        print()
+        print('feedRate: ', feedRate)
+        print()
+        print()
 
-    rpm = TAIG_BELT_POS_TO_RPM['C'] 
-    toolDiam  = 0.25
-    sfm = getSFM(rpm, toolDiam)
-    print('test getSFM')
-    print('-'*40)
-    print('RPM:      ', rpm)
-    print('toolDiam: ', toolDiam)
-    print()
-    print('SFM:      ', sfm)
-    print()
-    print()
+        rpm = TAIG_BELT_POS_TO_RPM['C'] 
+        toolDiam  = 0.25
+        sfm = getSFM(rpm, toolDiam)
+        print('test getSFM')
+        print('-'*40)
+        print('RPM:      ', rpm)
+        print('toolDiam: ', toolDiam)
+        print()
+        print('SFM:      ', sfm)
+        print()
+        print()
 
-    sfm = 500
-    chipLoad = 0.003
-    toolDiam = 0.25
-    numTeeth = 2
-    feedRate, rpm = getFeedRateAndRPM(sfm,chipLoad,toolDiam,numTeeth)
-    print('test getFeedRateAndRPM')
-    print('-'*40)
-    print('SFM:      ', sfm)
-    print('chipLoad: ', chipLoad)
-    print('toolDiam: ', toolDiam)
-    print('numTeeth: ', numTeeth)
-    print()
-    print('feedRate: ', feedRate)
-    print('RPM:      ', rpm)
-    print()
+        sfm = 500
+        chipLoad = 0.003
+        toolDiam = 0.25
+        numTeeth = 2
+        feedRate, rpm = getFeedRateAndRPM(sfm,chipLoad,toolDiam,numTeeth)
+        print('test getFeedRateAndRPM')
+        print('-'*40)
+        print('SFM:      ', sfm)
+        print('chipLoad: ', chipLoad)
+        print('toolDiam: ', toolDiam)
+        print('numTeeth: ', numTeeth)
+        print()
+        print('feedRate: ', feedRate)
+        print('RPM:      ', rpm)
+        print()
 
-
-
+    if 1:
+        rpm = 9100.0
+        setting = getBosch1617Setting(rpm)
+        print('rpm: {}'.format(rpm))
+        print('setting: {}'.format(setting))
 
 
