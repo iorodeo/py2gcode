@@ -663,7 +663,7 @@ class LineSegPath(gcode_cmd.GCodeProg):
         pointListMod = []
         pointListMod.extend(self.pointList)
         if self.closed:
-            pointListMod.append(pointList[0])
+            pointListMod.append(self.pointList[0])
         if self.helix is not None:
             pointListMod = self.addHelixToPointList(pointListMod)
         return pointListMod

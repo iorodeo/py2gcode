@@ -709,6 +709,61 @@ class CannedCycleReturnMode(GCodeCmd):
 # Other modal codes
 # -----------------------------------------------------------------------------
 
+class StartSpindleCW(GCodeCmd):
+
+    def __init__(self):
+        super(StartSpindleCW,self).__init__()
+        self.code = 'M3'
+        self.commentStr = 'Start Spindle Clockwise'
+
+
+class StartSpindleCCW(GCodeCmd):
+
+    def __init__(self):
+        super(StartSpindleCCW,self).__init__()
+        self.code = 'M4'
+        self.commentStr = 'Start Spindle Counter Clockwise'
+
+
+class StopSpindle(GCodeCmd):
+
+    def __init__(self):
+        super(StopSpindle,self).__init__()
+        self.code = 'M5'
+        self.commentStr = 'Stop Spindle'
+
+
+class DigitalOutput(GCodeSingleArgCmd):
+
+    def __init__(self,pin,value,synchronized=False):
+        super(DigitalOutput,self).__init__(pin, valueType=int)
+        self.code = DigitalOutput.getCode(value,synchronized)
+        if synchronized:
+            self.commentStr = 'Synchronized digital output' 
+        else:
+            self.commentStr = 'Immediant digital output'
+
+    def getCmdList(self):
+        cmdList = super(GCodeSingleArgCmd,self).getCmdList()
+        cmdList.append('P{0}'.format(self.valueType(self.value)))
+        return cmdList
+
+
+    @staticmethod
+    def getCode(value, synchronized):
+        if synchronized:
+            if value:
+                code = 'M62'
+            else:
+                code = 'M63'
+        else:
+            if value:
+                code = 'M64'
+            else:
+                code = 'M65'
+        return code
+
+
 class CoordinateSystem(GCodeCmd):
 
     Number2Code = {1:'G54', 2:'G55', 3:'G56', 4:'G57', 5:'G58', 6:'G59'}

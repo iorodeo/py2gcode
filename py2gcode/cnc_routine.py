@@ -38,7 +38,6 @@ class SafeZRoutine(gcode_cmd.GCodeProg):
         self.listOfCmds = []
 
     def addStartComment(self):
-        self.listOfCmds = []
         self.listOfCmds.append(gcode_cmd.Space())
         commentStr = 'Begin {0}'.format(self.__class__.__name__)
         self.listOfCmds.append(gcode_cmd.Comment(commentStr))

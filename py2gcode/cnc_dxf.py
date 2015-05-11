@@ -26,7 +26,9 @@ import networkx
 import numpy
 import shapely.geometry.polygon as polygon
 import matplotlib.pyplot as plt
-from geom_utils import dist2D
+
+from graph_utils import getEntityGraph
+from dxf_utils import getEntityStartAndEndPts
 
 class DxfBase(gcode_cmd.GCodeProg):
 
@@ -409,69 +411,68 @@ class DxfBoundary(DxfBase):
 
 
 
+## Utility functions
+## -----------------------------------------------------------------------------
+#def getEntityGraph(entityList, ptEquivTol=1.0e-6):
+#    ptToNodeDict = getPtToNodeDict(entityList,ptEquivTol)
+#    graph = networkx.Graph()
+#    for entity in entityList:
+#        startPt, endPt = getEntityStartAndEndPts(entity)
+#        startNode = ptToNodeDict[startPt]
+#        graph.add_node(startNode,coord=startPt)
+#        endNode = ptToNodeDict[endPt]
+#        graph.add_node(endNode,coord=endPt)
+#        graph.add_edge(startNode, endNode, entity=entity)
+#    for edge in graph.edges():
+#        # Remove any trivial edges - perhaps due to drawing errors?
+#        if edge[0] == edge[1]:
+#            graph.remove_edge(*edge)
+#    return graph, ptToNodeDict
+#
+#def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):
+#    ptList = []
+#    for entity in entityList:
+#        startPt, endPt = getEntityStartAndEndPts(entity)
+#        ptList.extend([startPt, endPt])
+#    ptToNodeDict = {}
+#    nodeCnt = 0
+#    for i, p in enumerate(ptList):
+#        found = False
+#        for q in ptList[:i]:
+#            if dist2D(p,q) < ptEquivTol:
+#                found = True
+#                ptToNodeDict[p] = ptToNodeDict[q] 
+#                break
+#        if not found:
+#            ptToNodeDict[p] = nodeCnt
+#            nodeCnt += 1
+#    return ptToNodeDict
 
-# Utility functions
-# -----------------------------------------------------------------------------
-def getEntityGraph(entityList, ptEquivTol=1.0e-6):
-    ptToNodeDict = getPtToNodeDict(entityList,ptEquivTol)
-    graph = networkx.Graph()
-    for entity in entityList:
-        startPt, endPt = getEntityStartAndEndPts(entity)
-        startNode = ptToNodeDict[startPt]
-        graph.add_node(startNode,coord=startPt)
-        endNode = ptToNodeDict[endPt]
-        graph.add_node(endNode,coord=endPt)
-        graph.add_edge(startNode, endNode, entity=entity)
-    for edge in graph.edges():
-        # Remove any trivial edges - perhaps due to drawing errors?
-        if edge[0] == edge[1]:
-            graph.remove_edge(*edge)
-    return graph, ptToNodeDict
-
-def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):
-    ptList = []
-    for entity in entityList:
-        startPt, endPt = getEntityStartAndEndPts(entity)
-        ptList.extend([startPt, endPt])
-    ptToNodeDict = {}
-    nodeCnt = 0
-    for i, p in enumerate(ptList):
-        found = False
-        for q in ptList[:i]:
-            if dist2D(p,q) < ptEquivTol:
-                found = True
-                ptToNodeDict[p] = ptToNodeDict[q] 
-                break
-        if not found:
-            ptToNodeDict[p] = nodeCnt
-            nodeCnt += 1
-    return ptToNodeDict
-
-def getDxfArcStartAndEndPts(arc): 
-    xc = arc.center[0]
-    yc = arc.center[1]
-    r = arc.radius
-    angStart = (math.pi/180.0)*arc.startangle
-    angEnd = (math.pi/180.0)*arc.endangle
-    if angEnd < angStart:
-        angEnd += 2.0*math.pi 
-    x0 = xc + r*math.cos(angStart)
-    y0 = yc + r*math.sin(angStart)
-    x1 = xc + r*math.cos(angEnd)
-    y1 = yc + r*math.sin(angEnd)
-    startPt = x0,y0
-    endPt = x1,y1
-    return startPt,endPt
-
-
-def getEntityStartAndEndPts(entity):
-    if entity.dxftype == 'LINE':
-        startPt, endPt = entity.start[:2], entity.end[:2]
-    elif entity.dxftype == 'ARC':
-        startPt, endPt = getDxfArcStartAndEndPts(entity)
-    else:
-        raise RuntimeError('entity type not yet supported')
-    return startPt, endPt
+#def getDxfArcStartAndEndPts(arc): 
+#    xc = arc.center[0]
+#    yc = arc.center[1]
+#    r = arc.radius
+#    angStart = (math.pi/180.0)*arc.startangle
+#    angEnd = (math.pi/180.0)*arc.endangle
+#    if angEnd < angStart:
+#        angEnd += 2.0*math.pi 
+#    x0 = xc + r*math.cos(angStart)
+#    y0 = yc + r*math.sin(angStart)
+#    x1 = xc + r*math.cos(angEnd)
+#    y1 = yc + r*math.sin(angEnd)
+#    startPt = x0,y0
+#    endPt = x1,y1
+#    return startPt,endPt
+#
+#
+#def getEntityStartAndEndPts(entity):
+#    if entity.dxftype == 'LINE':
+#        startPt, endPt = entity.start[:2], entity.end[:2]
+#    elif entity.dxftype == 'ARC':
+#        startPt, endPt = getDxfArcStartAndEndPts(entity)
+#    else:
+#        raise RuntimeError('entity type not yet supported')
+#    return startPt, endPt
 
 
 
