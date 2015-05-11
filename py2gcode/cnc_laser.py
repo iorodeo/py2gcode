@@ -134,9 +134,13 @@ class LaserCutBase(gcode_cmd.GCodeProg):
 
     @property
     def entityList(self):
+        print('1')
         entityList = [x for x in self.dwg.entities if x.layer in self.layerNameList]
+        print('2')
         entityList = [x for x in entityList if x.dxftype in self.param['dxfTypes']] 
+        print('3')
         entityList = [x for x in entityList if x.dxftype in self.ALLOWED_TYPE_LIST]
+        print('4')
         return entityList
 
 
@@ -163,7 +167,9 @@ class VectorCut(LaserCutBase):
         self.addLaserSetup()
 
         # Get entity graph and find connected components
+        print('Getting entity graph')
         graph, ptToNodeDict = getEntityGraph(self.entityList,self.param['ptEquivTol'])
+        print('Finding connected components')
         connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
         # Create list of commands for each connected component individually
         for i, subGraph in enumerate(connectedCompSubGraphs):
