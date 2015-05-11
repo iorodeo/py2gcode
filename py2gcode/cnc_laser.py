@@ -151,6 +151,7 @@ class VectorCut(LaserCutBase):
             'ptEquivTol'  :  1.0e-5,
             'maxArcLen'   :  1.0e-2,
             'startCond'   : 'minX',
+            'returnHome'  :  True, 
             }
 
 
@@ -190,7 +191,8 @@ class VectorCut(LaserCutBase):
                 raise RuntimeError(errorMsg)
 
         self.addLaserShutdown()
-        self.addRapidMoveToHome()
+        if self.param['returnHome']:
+            self.addRapidMoveToHome()
             
 
     def makeCmdsForLineString(self,graph):
