@@ -200,7 +200,7 @@ class VectorCut(LaserCutBase):
             
 
     def makeCmdsForLineString(self,graph):
-        print('makeCmdsForLineString')
+        print(' makeCmdsForLineString')
 
         # Get start and end  node based on startCond.
         endNodeList = [n for n in graph if graph.degree(n) == 1]
@@ -230,7 +230,7 @@ class VectorCut(LaserCutBase):
         return listOfCmds
 
     def makeCmdsForClosedLoop(self,graph):
-        print('makeCmdsForClosedLoop')
+        print(' makeCmdsForClosedLoop')
         # Get start and end nodes based on startCond
         if self.param['startCond'] in ('minX', 'maxX'):
             coordAndNodeList = [(graph.node[n]['coord'][0], n) for n in graph]
@@ -381,7 +381,8 @@ if __name__ == '__main__':
 
     dxfDir = os.path.join(os.curdir,'test_dxf')
 
-    fileName = os.path.join(dxfDir, '3mm_black_colorimeter_array.dxf')
+    #fileName = os.path.join(dxfDir, '3mm_black_colorimeter_fix.dxf')
+    fileName = os.path.join(dxfDir, 'temp.dxf')
     param = {
             'fileName'    :  fileName,
             'layers'      :  ['vector'],

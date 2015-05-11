@@ -44,8 +44,9 @@ def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):
         ptList.extend([startPt, endPt])
     ptToNodeDict = {}
     nodeCnt = 0
+    numPts = len(ptList)
     for i, p in enumerate(ptList):
-        print(' {0}/{1}'.format(i,len(ptList)))
+        print('{0:1.0f}%'.format(100*float(i)/float(numPts)))
         found = False
         for q in ptList[:i]:
             if geom_utils.dist2D(p,q) < ptEquivTol:
