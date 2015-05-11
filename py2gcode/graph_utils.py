@@ -20,7 +20,9 @@ import dxf_utils
 import geom_utils
 
 def getEntityGraph(entityList, ptEquivTol=1.0e-6):
+    print(' create point to node dict')
     ptToNodeDict = getPtToNodeDict(entityList,ptEquivTol)
+    print(' create graph')
     graph = networkx.Graph()
     for entity in entityList:
         startPt, endPt = dxf_utils.getEntityStartAndEndPts(entity)
@@ -42,7 +44,9 @@ def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):
         ptList.extend([startPt, endPt])
     ptToNodeDict = {}
     nodeCnt = 0
+    numPts = len(ptList)
     for i, p in enumerate(ptList):
+        print('{0:1.0f}%'.format(100*float(i)/float(numPts)))
         found = False
         for q in ptList[:i]:
             if geom_utils.dist2D(p,q) < ptEquivTol:
