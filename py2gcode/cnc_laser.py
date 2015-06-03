@@ -18,6 +18,7 @@ limitations under the License.
 from __future__ import print_function
 import cnc_path
 import math
+import numpy
 import gcode_cmd
 import dxfgrabber
 import networkx
@@ -25,6 +26,7 @@ import shapely.geometry.polygon as polygon
 
 from graph_utils import getEntityGraph
 from dxf_utils import getEntityStartAndEndPts
+from geom_utils import dist2D
 
 class LaserCutBase(gcode_cmd.GCodeProg): 
 
@@ -134,13 +136,9 @@ class LaserCutBase(gcode_cmd.GCodeProg):
 
     @property
     def entityList(self):
-        print('1')
         entityList = [x for x in self.dwg.entities if x.layer in self.layerNameList]
-        print('2')
         entityList = [x for x in entityList if x.dxftype in self.param['dxfTypes']] 
-        print('3')
         entityList = [x for x in entityList if x.dxftype in self.ALLOWED_TYPE_LIST]
-        print('4')
         return entityList
 
 
@@ -193,8 +191,9 @@ class VectorCut(LaserCutBase):
                 listOfCmds = self.makeCmdsForLineString(subGraph)
                 self.listOfCmds.extend(listOfCmds)
             else:
-                errorMsg = 'sub-graph has nodes with degree 0'
-                raise RuntimeError(errorMsg)
+                #errorMsg = 'sub-graph has nodes with degree 0'
+                #raise RuntimeError(errorMsg)
+                continue
 
         self.addLaserShutdown()
         if self.param['returnHome']:

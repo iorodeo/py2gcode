@@ -27,6 +27,7 @@ import numpy
 import shapely.geometry.polygon as polygon
 import matplotlib.pyplot as plt
 
+from geom_utils import dist2D
 from graph_utils import getEntityGraph
 from dxf_utils import getEntityStartAndEndPts
 
