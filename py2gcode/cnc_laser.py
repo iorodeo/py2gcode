@@ -144,7 +144,7 @@ class LaserCutBase(gcode_cmd.GCodeProg):
 
 class VectorCut(LaserCutBase):
 
-    ALLOWED_TYPE_LIST = ['LINE', 'ARC']
+    ALLOWED_TYPE_LIST = ['LINE', 'ARC', 'CIRCLE']
     DEFAULT_PARAM = {
             'dxfTypes'    :  ['LINE'],
             'laserPower'  :  300,
@@ -182,6 +182,7 @@ class VectorCut(LaserCutBase):
                     edgeGraph = subGraph.subgraph(edge)
                     listOfCmds = self.makeCmdsForLineString(edgeGraph)
                     self.listOfCmds.extend(listOfCmds)
+
             elif maxNodeDegree == 2 and minNodeDegree == 2:
                 # Graph is closed loop
                 listOfCmds = self.makeCmdsForClosedLoop(subGraph)
@@ -232,42 +233,54 @@ class VectorCut(LaserCutBase):
 
     def makeCmdsForClosedLoop(self,graph):
         print(' makeCmdsForClosedLoop')
-        # Get start and end nodes based on startCond
-        if self.param['startCond'] in ('minX', 'maxX'):
-            coordAndNodeList = [(graph.node[n]['coord'][0], n) for n in graph]
-        elif self.param['startCond'] in ('minY', 'maxY'):
-            coordAndNodeList = [(graph.node[n]['coord'][1], n) for n in graph]
+
+        if len(graph.edges())==1 and len(graph.nodes()) == 1:
+            # Graph is a circle
+            node = graph.nodes()[0]
+            circle = graph[node][node]['entity']
+            param = dict(self.param)
+            param['center'] = circle.center 
+            param['radius'] = circle.radius
+            circPath = LaserCircPath(param)
+            listOfCmds = circPath.listOfCmds
         else:
-            raise ValueError('unknown startCond {0}'.format(self.param['startCond']))
-        coordAndNodeList.sort()
-        if 'min' in self.param['startCond']:
-            startNode = coordAndNodeList[0][1]
-        else:
-            startNode = coordAndNodeList[-1][1]
-        endNode = graph.neighbors(startNode)[0]
 
-        # Get path around graph
-        simplePathList = [p for p in networkx.all_simple_paths(graph,startNode,endNode)]
-        lenAndSimplePathList = [(len(p),p) for p in simplePathList]
-        closedPath = max(lenAndSimplePathList)[1]
-        closedPath.append(startNode)
-        closedPathCoord = [graph.node[n]['coord'] for n in closedPath]
+            # Get start and end nodes based on startCond
+            if self.param['startCond'] in ('minX', 'maxX'):
+                coordAndNodeList = [(graph.node[n]['coord'][0], n) for n in graph]
+            elif self.param['startCond'] in ('minY', 'maxY'):
+                coordAndNodeList = [(graph.node[n]['coord'][1], n) for n in graph]
+            else:
+                raise ValueError('unknown startCond {0}'.format(self.param['startCond']))
+            coordAndNodeList.sort()
+            if 'min' in self.param['startCond']:
+                startNode = coordAndNodeList[0][1]
+            else:
+                startNode = coordAndNodeList[-1][1]
+            endNode = graph.neighbors(startNode)[0]
 
-        # Test for self instersections and if none orient closed loop for cutting direction
-        lineString = polygon.LineString(closedPathCoord)
-        if lineString.is_simple:
-            linearRing = polygon.LinearRing(closedPathCoord)
-            cwTest = self.param['direction'] == 'cw' and linearRing.is_ccw
-            ccwTest = self.param['direction'] == 'ccw' and not linearRing.is_ccw
-            if cwTest or ccwTest:
-                closedPath.reverse()
-                closedPathCoord.reverse()
+            # Get path around graph
+            simplePathList = [p for p in networkx.all_simple_paths(graph,startNode,endNode)]
+            lenAndSimplePathList = [(len(p),p) for p in simplePathList]
+            closedPath = max(lenAndSimplePathList)[1]
+            closedPath.append(startNode)
+            closedPathCoord = [graph.node[n]['coord'] for n in closedPath]
 
-        # Get list of segments (line or arc) along path and create cnc commands
-        segList = self.getSegListFromPath(closedPath,graph)
-        param = dict(self.param)
-        param['closed'] = True 
-        listOfCmds = self.makeListOfCmdsFromSegList(segList,param)
+            # Test for self instersections and if none orient closed loop for cutting direction
+            lineString = polygon.LineString(closedPathCoord)
+            if lineString.is_simple:
+                linearRing = polygon.LinearRing(closedPathCoord)
+                cwTest = self.param['direction'] == 'cw' and linearRing.is_ccw
+                ccwTest = self.param['direction'] == 'ccw' and not linearRing.is_ccw
+                if cwTest or ccwTest:
+                    closedPath.reverse()
+                    closedPathCoord.reverse()
+
+            # Get list of segments (line or arc) along path and create cnc commands
+            segList = self.getSegListFromPath(closedPath,graph)
+            param = dict(self.param)
+            param['closed'] = True 
+            listOfCmds = self.makeListOfCmdsFromSegList(segList,param)
         return listOfCmds
 
     def makeListOfCmdsFromSegList(self,segList,param):
@@ -347,28 +360,37 @@ class LaserLineSegPath(LaserCutBase):
 
     def makeListOfCmds(self):
         self.listOfCmds = []
-
         lineSegPath = cnc_path.LineSegPath(
                 self.param['pointList'],
                 closed=self.param['closed'],
                 plane='xy',
                 helix=None
                 )
-
-        # Routine begin - move to safe height, then to start x,y and then to start z
         self.addStartComment()
-
         x0, y0 = lineSegPath.getStartPoint()[:2]
         self.addRapidMoveToPos(x=x0,y=y0,comment='start x,y')
-
         self.listOfCmds.append((gcode_cmd.PathBlendMode(p=0.001,q=0.001)))
         self.addLaserOn(synchronized=True)
         self.listOfCmds.extend(lineSegPath.listOfCmds) 
         self.addLaserOff()
         self.listOfCmds.append(gcode_cmd.ExactPathMode())
-
         self.addEndComment()
 
+class LaserCircPath(LaserCutBase):
+
+    def __init__(self,param):
+        super(LaserCircPath,self).__init__(param)
+
+    def makeListOfCmds(self):
+        self.listOfCmds = []
+        circPath = cnc_path.CircPath(self.param['center'], self.param['radius'])
+        self.addStartComment()
+        x0, y0 = circPath.getStartPoint()
+        self.addRapidMoveToPos(x=x0,y=y0,comment='start x,y') 
+        self.addLaserOn(synchronized=True)
+        self.listOfCmds.extend(circPath.listOfCmds)
+        self.addLaserOff()
+        self.addEndComment()
 
 
 # --------------------------------------------------------------------------------

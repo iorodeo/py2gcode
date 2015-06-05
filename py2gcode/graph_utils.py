@@ -31,10 +31,10 @@ def getEntityGraph(entityList, ptEquivTol=1.0e-6):
         endNode = ptToNodeDict[endPt]
         graph.add_node(endNode,coord=endPt)
         graph.add_edge(startNode, endNode, entity=entity)
-    for edge in graph.edges():
-        # Remove any trivial edges - perhaps due to drawing errors?
-        if edge[0] == edge[1]:
-            graph.remove_edge(*edge)
+    #for edge in graph.edges():
+    #    # Remove any trivial edges - perhaps due to drawing errors?
+    #    if edge[0] == edge[1]:
+    #        graph.remove_edge(*edge)
     return graph, ptToNodeDict
 
 def getPtToNodeDict(entityList, ptEquivTol=1.0e-6):

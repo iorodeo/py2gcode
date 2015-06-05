@@ -15,6 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 """
+from __future__ import print_function
 import math
 
 def getEntityStartAndEndPts(entity):
@@ -22,6 +23,8 @@ def getEntityStartAndEndPts(entity):
         startPt, endPt = entity.start[:2], entity.end[:2]
     elif entity.dxftype == 'ARC':
         startPt, endPt = getDxfArcStartAndEndPts(entity)
+    elif entity.dxftype == 'CIRCLE':
+        startPt, endPt = getDxfCircleStartAndEndPts(entity)
     else:
         raise RuntimeError('entity type not yet supported')
     return startPt, endPt
@@ -42,4 +45,15 @@ def getDxfArcStartAndEndPts(arc):
     endPt = x1,y1
     return startPt,endPt
 
+def getDxfCircleStartAndEndPts(circle):
+    xc = circle.center[0]
+    yc = circle.center[1]
+    r = circle.radius
+    x0 = xc + r
+    y0 = yc
+    x1 = xc + r
+    y1 = yc
+    startPt = x0, y0
+    endPt = x1, y1
+    return startPt, endPt
 
