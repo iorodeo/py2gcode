@@ -78,6 +78,10 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
         except KeyError:
             cornerMargin = 0.0
         cornerMargin = float(cornerMargin)
+        try:
+            coolingPause = self.param['coolingPause']
+        except KeyError:
+            coolingPause = None
 
         # Check params
         checkRectPocketOverlap(overlap)
@@ -159,6 +163,11 @@ class RectPocketXY(cnc_routine.SafeZRoutine):
             # Get next z position
             if currZ <= stopZ:
                 done = True
+            else:
+                if coolingPause is not None:
+                    self.addRapidMoveToSafeZ()
+                    self.listOfCmds.append(gcode_cmd.Dwell(coolingPause))
+                    self.listOfCmds.append(gcode_cmd.LinearFeed(z=currZ))
             prevZ = currZ
             currZ = max([currZ - maxCutDepth, stopZ])
 
@@ -581,9 +590,11 @@ class CircAnnulusPocketXY(cnc_routine.SafeZRoutine):
                     )
             self.listOfCmds.extend(circPath.listOfCmds)
 
+
             # Get next z position
             if currZ <= stopZ:
                 done = True
+
             prevZ = currZ
             currZ = max([currZ - maxCutDepth, stopZ])
 
