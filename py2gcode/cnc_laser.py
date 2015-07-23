@@ -98,6 +98,7 @@ class LaserCutBase(gcode_cmd.GCodeProg):
         listOfCmds.extend(self.getLaserOffCmds(comment=False))
         listOfCmds.append(gcode_cmd.SpindleSpeed(self.param['laserPower']))
         listOfCmds.append(gcode_cmd.StartSpindleCW())
+        listOfCmds.append(gcode_cmd.Dwell(self.param['startDwell']))
         return listOfCmds
 
     def getLaserShutdownCmds(self):
@@ -154,6 +155,7 @@ class VectorCut(LaserCutBase):
             'maxArcLen'   :  1.0e-2,
             'startCond'   : 'minX',
             'returnHome'  :  True, 
+            'startDwell'  :  3.0,
             }
 
 
