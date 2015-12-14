@@ -117,7 +117,10 @@ class DxfCircPocket(DxfBase):
             pocketParam['centerX'] = entity.center[0]
             pocketParam['centerY'] = entity.center[1]
             pocketParam['radius'] = entity.radius
-            pocket = cnc_pocket.CircPocketXY(pocketParam)
+            if 'thickness' in pocketParam:
+                pocket = cnc_pocket.CircAnnulusPocketXY(pocketParam)
+            else:
+                pocket = cnc_pocket.CircPocketXY(pocketParam)
             self.listOfCmds.extend(pocket.listOfCmds)
 
 
@@ -303,6 +306,16 @@ class DxfBoundary(DxfBase):
         closedPath = max(lenAndSimplePathList)[1]
         closedPath.append(startNode)
         closedPathCoord = [graph.node[n]['coord'] for n in closedPath]
+
+
+        ## ==============================================
+        ## DEBUG
+        ## ==============================================
+        #xvals = [x for x,y in closedPathCoord]
+        #yvals = [y for x,y in closedPathCoord]
+        #plt.plot(xvals,yvals)
+        #plt.show()
+        ## ==============================================
 
         lineString = polygon.LineString(closedPathCoord)
         # Test for self instersections and if none orient closed loop for cutting direction
