@@ -190,6 +190,68 @@ class DxfRectPocketFromExtent(DxfBase):
         return pocket.listOfCmds 
 
 
+class DxfRectBoundaryFromExtent(DxfBase):
+
+    ALLOWED_TYPE_LIST = ['LINE','POINT']
+    DEFAULT_PARAM = {
+            'dxfTypes'    : ['LINE','POINT'],
+            'ptEquivTol'  :  1.0e-5,
+            'components'  : True,
+            }
+
+    def __init__(self,param):
+        super(DxfRectBoundaryFromExtent,self).__init__(param)
+
+    def makeListOfCmds(self):
+        self.listOfCmds = []
+        if self.param['components']:
+            # Get entity graph and find connected components
+            graph, ptToNodeDict = getEntityGraph(self.entityList,self.param['ptEquivTol'])
+            connectedCompSubGraphs = networkx.connected_component_subgraphs(graph)
+            # Create list of commands for each connected component individually
+            for i, subGraph in enumerate(connectedCompSubGraphs):
+                entityList = [subGraph[n][m]['entity'] for n, m in subGraph.edges()]
+                self.listOfCmds.extend(self.makeListOfCmdsForEntityList(entityList))
+        else:
+            self.listOfCmds.extend(self.makeListOfCmdsForEntityList(self.entityList))
+
+    def makeListOfCmdsForEntityList(self,entityList):
+        """
+        Generates rectangular pocket from extent of entities in the given list.
+        """
+        coordList = []
+        for entity in entityList:
+            if entity.dxftype == 'LINE':
+                coordList.append(entity.start[:2])
+                coordList.append(entity.end[:2])
+            elif entity.dxftype == 'POINT':
+                coordList.append(entity.point[:2])
+            else:
+                raise RuntimeError('dxftype {0} not supported yet'.format(entity.dxftype))
+
+        # Get x and y coordinates max and min values
+        xCoordList = [p[0] for p in coordList]
+        yCoordList = [p[1] for p in coordList]
+        xMax = max(xCoordList)
+        xMin = min(xCoordList)
+        yMax = max(yCoordList)
+        yMin = min(yCoordList)
+
+        # Calculate center, width and height
+        centerX = 0.5*(xMax + xMin)
+        centerY = 0.5*(yMax + yMin)
+        width = xMax - xMin
+        height = yMax - yMin
+
+        # Create list of commands
+        boundaryParam = dict(self.param)
+        boundaryParam['centerX'] = centerX
+        boundaryParam['centerY'] = centerY
+        boundaryParam['width'] = width
+        boundaryParam['height'] = height
+        boundary = cnc_boundary.RectBoundaryXY(boundaryParam)
+        return boundary.listOfCmds 
+
 
 class DxfCircBoundary(DxfBase):
 
