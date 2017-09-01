@@ -387,6 +387,10 @@ class CircPocketXY(cnc_routine.SafeZRoutine):
         except KeyError:
             startDwell = 0.0
         startDwell = abs(float(startDwell))
+        try:
+            coolingPause = self.param['coolingPause']
+        except KeyError:
+            coolingPause = None
 
         # Check params
         if overlap < 0.0 or overlap >= 1.0: 
@@ -456,9 +460,20 @@ class CircPocketXY(cnc_routine.SafeZRoutine):
             centerMoveCmd = gcode_cmd.LinearFeed(x=cx,y=cy)
             self.listOfCmds.append(centerMoveCmd)
 
+            ## Get next z position
+            #if currZ <= stopZ:
+            #    done = True
+            #prevZ = currZ
+            #currZ = max([currZ - maxCutDepth, stopZ])
+            
             # Get next z position
             if currZ <= stopZ:
                 done = True
+            else:
+                if coolingPause is not None:
+                    self.addRapidMoveToSafeZ()
+                    self.listOfCmds.append(gcode_cmd.Dwell(coolingPause))
+                    self.listOfCmds.append(gcode_cmd.LinearFeed(z=currZ))
             prevZ = currZ
             currZ = max([currZ - maxCutDepth, stopZ])
 
