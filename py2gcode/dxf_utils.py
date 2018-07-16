@@ -33,8 +33,14 @@ def getDxfArcStartAndEndPts(arc):
     xc = arc.center[0]
     yc = arc.center[1]
     r = arc.radius
-    angStart = (math.pi/180.0)*arc.startangle
-    angEnd = (math.pi/180.0)*arc.endangle
+    try:
+        angStart = (math.pi/180.0)*arc.start_angle
+    except AttributeError:
+        angStart = (math.pi/180.0)*arc.startangle
+    try:
+        angEnd = (math.pi/180.0)*arc.end_angle
+    except AttributeError:
+        angEnd = (math.pi/180.0)*arc.endangle
     if angEnd < angStart:
         angEnd += 2.0*math.pi 
     x0 = xc + r*math.cos(angStart)

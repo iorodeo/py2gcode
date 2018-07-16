@@ -360,7 +360,7 @@ class DxfBoundary(DxfBase):
             startNode = coordAndNodeList[0][1]
         else:
             startNode = coordAndNodeList[-1][1]
-        endNode = graph.neighbors(startNode)[0]
+        endNode = list(graph.neighbors(startNode))[0]
 
         # Get path around graph
         simplePathList = [p for p in networkx.all_simple_paths(graph,startNode,endNode)]
@@ -465,8 +465,16 @@ class DxfBoundary(DxfBase):
         xc = arc.center[0]
         yc = arc.center[1]
         r = arc.radius
-        angStart = (math.pi/180.0)*arc.startangle
-        angEnd = (math.pi/180.0)*arc.endangle
+        try:
+            angStart = (math.pi/180.0)*arc.start_angle
+        except AttributeError:
+            angStart = (math.pi/180.0)*arc.startangle
+
+        try:
+            angEnd = (math.pi/180.0)*arc.end_angle
+        except AttributeError:
+            angEnd = (math.pi/180.0)*arc.endangle
+        
         # Get array of steps from start to end angle
         if angEnd < angStart:
             angEnd += 2.0*math.pi 
